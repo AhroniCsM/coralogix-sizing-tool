@@ -1,0 +1,46 @@
+DD Usage,,,,,,,,,,
+,,,,,,,,,,
+Infra Hosts,Custom Metrics,Indexed Logs - Live & Rehydrated (Million),Indexed Logs - 3 Day Retention (Million),Rum Sessions,Serverless Invocation,,,,,
+1091,"167,000",0,235,,"248,000",,,,,
+Ingested Spans (GB),Indexed Spans (Million),Ingested Logs (Live & Rehydrated) (GB),Indexed Logs - 7 Day Retention (Million),Analyzed Logs - (Security) - 15m retention  (GB),Fargate Tasks,,,,,
+"16,100",6,"283,000","13,600",0,,,,,,
+APM Hosts,Profiled Hosts,Containers,Profiled Containers,Custom Events,Serverless Workload Functions,,,,,
+57,57,,0,"11,800",,,,,,
+Error Tracking Events,APM Fargate Tasks,Profiled Fargate Tasks,,,,,,,,
+53400,21,0,,,,,,,,
+,,,,,,,Convert Hourly,,,
+Coralogix Sizing,,,,,,,,Hourly,Hosts,
+,,,,,,,Infra Hosts,"714,000",1091,Enter Hourly Infra Hosts
+Logs,,,,Logs,,,Containers,0,0,Enter Hourly Containers
+Total Ingested Logs,"283,000",GB/month,,11.66%,Current indexed percentage,,Profiled Containers,0,0,Enter Hourly Profiled Containers
+Avg log size,2.50,KB,,9433,Total GB Logs / Day,,APM Hosts,"37,100",57,Enter Hourly APM Hosts
+Total Indexed Logs,"13,835,000,000",Logs/month,,943,GB / Day  (FS) / 10%,,Profiled Hosts,"37,000",57,Enter Hourly Profiled Hosts
+Total Indexed Logs Size (Bytes),"35,417,600,000,000",Bytes/month,,6603,GB / Day  (Mon) / 70%,,Network hosts,0,0,Enter Hourly Network hosts
+Total Indexed Logs Size (GB),32985.21,GB/month,,1887,GB/ Day  (Comp) / 20%,,Custom Metric Hours,0,0,Enter Hourly Custom Metrics
+Total Indexed (GB),1099.51, GB / Day,,,,,,,,
+,,,,Metrics,,,,Monthly,Daily,
+Metrics,,,,"1,160,900",TS (NumSeries),,Serverless Workload Functions,0,0,Enter Monthly Serverless Workload Functions
+Hosts,1226,,,1161,GB / Day,,RUM Sessions,18,1,Enter Monthly RUM Sessions
+Containers,0,,,0.000033,TS to Units,,Serverless Invocations,"248,000","8,158",Enter Monthly Serverless Invocations
+Serverless Workload Functions,0,TS (NumSeries),,,,,,,,
+Serverless Invocation,"74,400",TS (NumSeries),3 metric labels × 10% unique dimensions × daily invocations,38,Metrics Units / Day ,,,,,
+AVG 750 time series per node,"919,500",TS (NumSeries),,,,,,,,
+Custom Metrics,"167,000",TS (NumSeries),,Tracing,,,,,,
+Promethues Metrics,,NumSeries,,0.05%,Current indexed percentage,,,,,
+,,,,537,Total GB / Day (Ingest),,,,,
+Tracing,,,,0,Indexed Tracing GB/Day,,,,,
+Avg span size,2,KB,,536,GB Traces Archive,,,,,
+Ingested spans,"16,100",GB/Month,,0,GB Traces Indexed,,,,,
+Indexed spans,8,GB/Month,,,,,,,,
+Daily Ingested spans (Bytes),537,GB/Month,,Totals,,,,,,
+,,,,Logs (GB),"9,433",,,,,
+,,,,Metrics (NS),"1,160,900",,,,,
+,,,,Tracing (GB),537,,,,,
+,,,,RUM Sessions,,,,,,
+,,,,RUM Errors,"1,780",,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,Apply this information to the TCO Calculator,,,,,,
