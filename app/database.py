@@ -1,3 +1,5 @@
+import logging
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -5,6 +7,66 @@ from typing import Generator
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# GCS persistence — keeps SQLite DB in a GCS bucket so it survives
+# Cloud Run container restarts / new revisions.
+# ---------------------------------------------------------------------------
+GCS_BUCKET = os.getenv("GCS_DB_BUCKET", "")  # e.g. "coralogix-sizing-tool-data"
+GCS_BLOB = "sizing.db"
+
+_gcs_bucket_obj = None
+
+
+def _get_gcs_bucket():
+    """Lazily initialise GCS bucket handle."""
+    global _gcs_bucket_obj
+    if _gcs_bucket_obj is None and GCS_BUCKET:
+        try:
+            from google.cloud import storage as gcs
+            client = gcs.Client()
+            _gcs_bucket_obj = client.bucket(GCS_BUCKET)
+            logger.info("GCS persistence enabled — bucket: %s", GCS_BUCKET)
+        except Exception:
+            logger.exception("Failed to initialise GCS client")
+    return _gcs_bucket_obj
+
+
+def _download_db_from_gcs() -> bool:
+    """Download DB from GCS if it exists. Returns True on success."""
+    bucket = _get_gcs_bucket()
+    if not bucket:
+        return False
+    blob = bucket.blob(GCS_BLOB)
+    try:
+        if blob.exists():
+            settings.db_path.parent.mkdir(parents=True, exist_ok=True)
+            blob.download_to_filename(str(settings.db_path))
+            logger.info("Downloaded DB from GCS (%s bytes)", settings.db_path.stat().st_size)
+            return True
+        logger.info("No existing DB in GCS — will create fresh")
+    except Exception:
+        logger.exception("Failed to download DB from GCS")
+    return False
+
+
+def _upload_db_to_gcs() -> None:
+    """Upload current DB to GCS."""
+    bucket = _get_gcs_bucket()
+    if not bucket:
+        return
+    try:
+        blob = bucket.blob(GCS_BLOB)
+        blob.upload_from_filename(str(settings.db_path))
+        logger.debug("Uploaded DB to GCS")
+    except Exception:
+        logger.exception("Failed to upload DB to GCS")
+
+
+# ---------------------------------------------------------------------------
+# Schema
+# ---------------------------------------------------------------------------
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sizing_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,6 +112,9 @@ CREATE TABLE IF NOT EXISTS extraction_insights (
 
 
 def init_db() -> None:
+    # Try to restore DB from GCS first
+    _download_db_from_gcs()
+
     settings.db_path.parent.mkdir(parents=True, exist_ok=True)
     with get_db() as db:
         db.executescript(SCHEMA)
@@ -70,6 +135,9 @@ def init_db() -> None:
             ("aharon.shahar@coralogix.com",),
         )
 
+    # Back up the initialised DB
+    _upload_db_to_gcs()
+
 
 @contextmanager
 def get_db() -> Generator[sqlite3.Connection, None, None]:
@@ -80,6 +148,8 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
     try:
         yield conn
         conn.commit()
+        # Sync to GCS after every successful commit
+        _upload_db_to_gcs()
     except Exception:
         conn.rollback()
         raise
