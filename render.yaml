@@ -2,6 +2,7 @@ services:
   - type: web
     name: coralogix-sizing-tool
     runtime: python
+    pythonVersion: "3.11.0"
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -9,7 +10,5 @@ services:
         sync: false
       - key: CLAUDE_MODEL
         value: claude-sonnet-4-20250514
-      - key: PORT
-        value: "10000"
     healthCheckPath: /health
     autoDeploy: true
