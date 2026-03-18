@@ -166,7 +166,7 @@ function setupFormSubmit() {
         if (pastedImages.length > 0) {
             e.preventDefault();
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner mr-2"></span> Extracting with Claude Vision...';
+            btn.innerHTML = '<span class="spinner mr-2"></span> Analyzing screenshot...';
 
             const provider = document.querySelector('input[name="provider"]:checked')?.value || 'datadog';
 
@@ -195,7 +195,7 @@ function setupFormSubmit() {
 
         // Normal file upload — just show spinner
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner mr-2"></span> Extracting with Claude Vision...';
+        btn.innerHTML = '<span class="spinner mr-2"></span> Analyzing screenshot...';
     });
 }
 
