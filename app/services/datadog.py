@@ -30,7 +30,7 @@ def _val(v: float | None) -> Decimal:
 
 
 def _resolve_host_field(
-    value: float | None, is_hourly: bool
+    value: float | None, is_hourly: bool | None
 ) -> Decimal:
     """Resolve a host/container field, converting from hours if needed."""
     if value is None:

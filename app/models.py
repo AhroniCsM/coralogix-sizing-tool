@@ -8,23 +8,23 @@ from pydantic import BaseModel
 class DatadogExtraction(BaseModel):
     # Hosts
     infra_hosts: float | None = None
-    infra_hosts_is_hourly: bool = False
+    infra_hosts_is_hourly: bool | None = False
     apm_hosts: float | None = None
-    apm_hosts_is_hourly: bool = False
+    apm_hosts_is_hourly: bool | None = False
     profiled_hosts: float | None = None
-    profiled_hosts_is_hourly: bool = False
+    profiled_hosts_is_hourly: bool | None = False
     network_hosts: float | None = None
-    network_hosts_is_hourly: bool = False
+    network_hosts_is_hourly: bool | None = False
     fargate_tasks: float | None = None
 
     # Containers
     container_hours: float | None = None
     profiled_containers: float | None = None
-    profiled_containers_is_hourly: bool = False
+    profiled_containers_is_hourly: bool | None = False
 
     # Metrics
     custom_metrics: float | None = None
-    custom_metrics_is_hourly: bool = False
+    custom_metrics_is_hourly: bool | None = False
 
     # Logs — indexed counts in MILLIONS
     indexed_logs_3d: float | None = None
