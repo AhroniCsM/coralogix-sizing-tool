@@ -40,6 +40,9 @@
             <div class="flex items-center gap-4 text-sm">
                 <a href="/" class="hover:text-cx-green transition">Upload</a>
                 <a href="/history" class="hover:text-cx-green transition">History</a>
+                {% if request.state.is_admin is defined and request.state.is_admin %}
+                <a href="/admin" class="hover:text-cx-orange transition text-cx-orange">Admin</a>
+                {% endif %}
                 {% if request.session and request.session.get('user') %}
                 <span class="text-gray-400 hidden sm:inline">|</span>
                 <span class="text-gray-400 text-xs hidden sm:inline">{{ request.session['user']['email'] }}</span>

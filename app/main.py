@@ -13,7 +13,8 @@ from starlette.requests import Request
 
 from app.config import BASE_DIR, settings
 from app.database import init_db
-from app.routers import auth, feedback, sizing
+from app.routers import admin, auth, feedback, sizing
+from app.routers.admin import is_admin as check_admin
 from app.services.insights import learn_from_data_files
 
 logging.basicConfig(
@@ -45,6 +46,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         user = request.session.get("user")
         if not user:
             return RedirectResponse("/login", status_code=303)
+
+        # Set admin flag for templates (accessible via request.state)
+        request.state.is_admin = check_admin(user["email"])
 
         return await call_next(request)
 
@@ -115,6 +119,7 @@ app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 app.include_router(auth.router)
 app.include_router(sizing.router)
 app.include_router(feedback.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")

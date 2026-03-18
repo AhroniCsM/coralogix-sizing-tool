@@ -28,6 +28,11 @@ CREATE TABLE IF NOT EXISTS feedback (
     field_corrections TEXT
 );
 
+CREATE TABLE IF NOT EXISTS admin_users (
+    email TEXT PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS extraction_insights (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     provider TEXT NOT NULL,
@@ -49,6 +54,12 @@ def init_db() -> None:
         cols = [row[1] for row in db.execute("PRAGMA table_info(sizing_runs)").fetchall()]
         if "user_email" not in cols:
             db.execute("ALTER TABLE sizing_runs ADD COLUMN user_email TEXT")
+
+        # Seed initial admin
+        db.execute(
+            "INSERT OR IGNORE INTO admin_users (email) VALUES (?)",
+            ("aharon.shahar@coralogix.com",),
+        )
 
 
 @contextmanager
