@@ -1,0 +1,33 @@
+{
+  "hosting": {
+    "site": "coralogix-sizing",
+    "public": "public",
+    "headers": [
+      {
+        "source": "/auth/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "private, no-cache, no-store, must-revalidate" }
+        ]
+      },
+      {
+        "source": "/login",
+        "headers": [
+          { "key": "Cache-Control", "value": "private, no-cache, no-store" }
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "coralogix-sizing-tool",
+          "region": "me-west1"
+        }
+      }
+    ],
+    "ignore": [
+      "firebase.json",
+      "**/.*"
+    ]
+  }
+}

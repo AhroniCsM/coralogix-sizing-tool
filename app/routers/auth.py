@@ -64,7 +64,10 @@ async def auth_google(request: Request):
         redirect_uri = str(request.url_for("auth_callback"))
         if "fly.dev" in redirect_uri or "coralogix" in redirect_uri or "run.app" in redirect_uri:
             redirect_uri = redirect_uri.replace("http://", "https://")
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+    response = await oauth.google.authorize_redirect(request, redirect_uri)
+    # Prevent Firebase Hosting from caching this redirect (state is unique per request)
+    response.headers["Cache-Control"] = "private, no-cache, no-store, must-revalidate"
+    return response
 
 
 @router.get("/auth/callback")
