@@ -7,8 +7,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
-    anthropic_api_key: str = ""
-    claude_model: str = "claude-sonnet-4-20250514"
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o"
     db_path: Path = BASE_DIR / "data" / "sizing.db"
     screenshots_dir: Path = BASE_DIR / "data" / "screenshots"
     max_upload_size_mb: int = 20
