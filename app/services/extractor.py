@@ -14,7 +14,7 @@ import openai
 from dataclasses import dataclass
 
 from app.config import settings
-from app.models import DatadogExtraction, NewRelicExtraction
+from app.models import CloudWatchExtraction, DatadogExtraction, NewRelicExtraction
 
 
 # GPT-4o pricing (per 1M tokens) as of 2024
@@ -25,7 +25,7 @@ GPT4O_OUTPUT_PRICE = 10.00  # $10.00 per 1M output tokens
 @dataclass
 class ExtractionResult:
     """Extraction result with usage tracking."""
-    extraction: DatadogExtraction | NewRelicExtraction
+    extraction: DatadogExtraction | NewRelicExtraction | CloudWatchExtraction
     prompt_tokens: int = 0
     completion_tokens: int = 0
     api_cost_usd: float = 0.0
@@ -158,6 +158,80 @@ Include these as extra fields: "total_daily_gb", "total_30d_gb", "account_info".
 """
 
 
+CLOUDWATCH_PROMPT = """You are an expert Coralogix SE analyzing AWS CloudWatch billing screenshots to produce accurate sizing estimates.
+The screenshots come from the AWS Billing Console, showing "Charges by Service" → "AmazonCloudWatch", broken down by region.
+
+CRITICAL RULES:
+- Screenshots may come from DIFFERENT AWS REGIONS. Each screenshot shows one region's CloudWatch charges.
+- Identify the region from the billing line items (e.g., "EU (Stockholm)" → "eu-north-1", "US East (N. Virginia)" → "us-east-1")
+- Extract per-region data AND aggregate totals across all regions
+- Parse each line item type:
+  * PutLogEvents: "$0.50-0.57 per GB" — extract GB amount and USD cost
+  * TimedStorage-ByteHrs: "$0.028 per GB-mo" — extract GB-Mo amount
+  * S3-Egress-Bytes: per GB of log data delivered to S3
+  * MetricMonitorUsage: "$0.30 per metric-month" — extract metric COUNT (not cost)
+  * GetMetricData/PutMetricData/Requests: per 1,000 requests — extract request count
+  * MetricUpdate: per 1,000 updates — extract update count
+  * Alarms: per alarm metric month — extract alarm count
+  * StartQuery (Log Insights): per GB scanned — extract GB amount
+  * X-Ray TracesReceived/SegmentsReceived — extract trace and segment counts
+- Report RAW values from screenshots
+- If a field is not visible, set it to null
+- DO NOT estimate or calculate — only extract what you see
+- For MULTIPLE screenshots, aggregate totals across all regions
+
+COMMON AWS REGION NAMES → CODES:
+- "US East (N. Virginia)" → "us-east-1"
+- "US East (Ohio)" → "us-east-2"
+- "US West (Oregon)" → "us-west-2"
+- "EU (Ireland)" → "eu-west-1"
+- "EU (Frankfurt)" → "eu-central-1"
+- "EU (Stockholm)" → "eu-north-1"
+- "Asia Pacific (Tokyo)" → "ap-northeast-1"
+- "Asia Pacific (Sydney)" → "ap-southeast-2"
+
+Return ONLY valid JSON matching this schema:
+{
+  "regions": {
+    "<region-code>": {
+      "put_log_events_gb": <number or null>,
+      "put_log_events_cost": <number USD or null>,
+      "timed_storage_gb_mo": <number or null>,
+      "s3_egress_gb": <number or null>,
+      "custom_metrics_count": <number of metrics or null>,
+      "metric_api_requests": <number or null>,
+      "metric_updates": <number or null>,
+      "alarms_count": <number or null>,
+      "start_query_gb": <number or null>,
+      "xray_traces": <number or null>,
+      "xray_segments": <number or null>,
+      "region_cost": <total USD for this region or null>
+    }
+  },
+  "total_put_log_events_gb": <sum across regions>,
+  "total_put_log_events_cost": <sum across regions>,
+  "total_timed_storage_gb_mo": <sum across regions>,
+  "total_custom_metrics_count": <sum across regions>,
+  "total_metric_api_requests": <sum across regions>,
+  "total_metric_updates": <sum across regions>,
+  "total_alarms_count": <sum across regions>,
+  "total_start_query_gb": <sum across regions>,
+  "total_s3_egress_gb": <sum across regions>,
+  "total_xray_traces": <sum across regions>,
+  "total_xray_segments": <sum across regions>,
+  "total_cloudwatch_cost": <total CloudWatch cost across all regions>,
+  "missing_fields": [<list of field names not found in any screenshot>],
+  "confidence": {<field_name>: "high"|"medium"|"low" for EVERY total field — ALWAYS include ALL fields}
+}
+
+IMPORTANT:
+- For metric counts: look at the QUANTITY column, not the cost. E.g., "10,000 Metrics" = 10000.
+- For requests/updates: the quantity is often in thousands. "500,000 Requests" = 500000.
+- If only ONE region screenshot is provided, the region data IS the total.
+- Parse suffixes: K = 1,000 / M = 1,000,000 / B = 1,000,000,000 / TB = 1,000 GB
+"""
+
+
 def _image_to_base64_url(path: Path) -> str:
     """Read an image file and return a data URL for OpenAI vision."""
     suffix = path.suffix.lower()
@@ -284,6 +358,50 @@ async def extract_newrelic(
     data = _parse_json_response(raw_text)
     return ExtractionResult(
         extraction=NewRelicExtraction(**data),
+        prompt_tokens=prompt_tok,
+        completion_tokens=completion_tok,
+        api_cost_usd=cost,
+    )
+
+
+async def extract_cloudwatch(
+    screenshot_paths: list[Path],
+    hints: list[str] | None = None,
+) -> ExtractionResult:
+    """Extract AWS CloudWatch billing values from screenshots using GPT-4o Vision."""
+    client = openai.OpenAI(api_key=settings.openai_api_key)
+
+    content: list[dict] = []
+    for path in screenshot_paths:
+        url = _image_to_base64_url(path)
+        content.append({
+            "type": "image_url",
+            "image_url": {"url": url, "detail": "high"},
+        })
+
+    prompt = CLOUDWATCH_PROMPT
+    if hints:
+        prompt += "\n\nLEARNED HINTS FROM PAST EXTRACTIONS:\n"
+        for hint in hints:
+            prompt += f"- {hint}\n"
+
+    content.append({"type": "text", "text": prompt})
+
+    response = client.chat.completions.create(
+        model=settings.openai_model,
+        max_tokens=4096,
+        messages=[{"role": "user", "content": content}],
+    )
+
+    raw_text = response.choices[0].message.content
+    logger.info("CloudWatch extraction raw response: %s", raw_text[:500])
+
+    prompt_tok, completion_tok, cost = _calc_cost(response.usage)
+    logger.info("API usage: %d prompt + %d completion tokens = $%.4f", prompt_tok, completion_tok, cost)
+
+    data = _parse_json_response(raw_text)
+    return ExtractionResult(
+        extraction=CloudWatchExtraction(**data),
         prompt_tokens=prompt_tok,
         completion_tokens=completion_tok,
         api_cost_usd=cost,

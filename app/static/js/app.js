@@ -139,23 +139,33 @@ function setupProviderToggle() {
     const radios = document.querySelectorAll('input[name="provider"]');
     const ddTips = document.getElementById('dd-tips');
     const nrTips = document.getElementById('nr-tips');
+    const cwTips = document.getElementById('cw-tips');
     const ddExamples = document.getElementById('dd-examples');
     const nrExamples = document.getElementById('nr-examples');
+    const cwExamples = document.getElementById('cw-examples');
 
     if (!radios.length || !ddTips || !nrTips) return;
 
     radios.forEach(radio => {
         radio.addEventListener('change', () => {
+            // Hide all first
+            ddTips.classList.add('hidden');
+            nrTips.classList.add('hidden');
+            if (cwTips) cwTips.classList.add('hidden');
+            if (ddExamples) ddExamples.classList.add('hidden');
+            if (nrExamples) nrExamples.classList.add('hidden');
+            if (cwExamples) cwExamples.classList.add('hidden');
+
+            // Show selected
             if (radio.value === 'datadog') {
                 ddTips.classList.remove('hidden');
-                nrTips.classList.add('hidden');
                 if (ddExamples) ddExamples.classList.remove('hidden');
-                if (nrExamples) nrExamples.classList.add('hidden');
-            } else {
-                ddTips.classList.add('hidden');
+            } else if (radio.value === 'newrelic') {
                 nrTips.classList.remove('hidden');
-                if (ddExamples) ddExamples.classList.add('hidden');
                 if (nrExamples) nrExamples.classList.remove('hidden');
+            } else if (radio.value === 'cloudwatch') {
+                if (cwTips) cwTips.classList.remove('hidden');
+                if (cwExamples) cwExamples.classList.remove('hidden');
             }
         });
     });

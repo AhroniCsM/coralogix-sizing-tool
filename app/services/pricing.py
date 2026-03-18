@@ -12,7 +12,7 @@ List prices sourced from public pricing pages (2024/2025).
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from app.models import DatadogExtraction, NewRelicExtraction
+from app.models import CloudWatchExtraction, DatadogExtraction, NewRelicExtraction
 
 D = Decimal
 
@@ -468,6 +468,226 @@ def estimate_newrelic(ext: NewRelicExtraction) -> PricingEstimate:
         "Low estimate assumes ~50% annual commitment discount.",
         "High estimate assumes ~20% annual commitment discount.",
         "Data Plus plan ($0.50/GB) adds enhanced security, compliance, and 90-day retention.",
+    ]
+
+    return est
+
+
+# ---------------------------------------------------------------------------
+# AWS CloudWatch pricing
+# ---------------------------------------------------------------------------
+
+CW_PRICING = {
+    # Logs
+    "put_log_events_per_gb": D("0.50"),          # $0.50/GB (standard regions)
+    "timed_storage_per_gb_mo": D("0.028"),       # $0.028/GB-Mo log storage
+    "s3_egress_per_gb": D("0.271"),              # $0.271/GB delivered to S3
+    "log_insights_per_gb": D("0.0054"),          # $0.0054/GB scanned (5 GB free)
+    "log_insights_free_gb": D("5"),              # 5 GB/month free
+
+    # Metrics
+    "metrics_first_10k_per_metric": D("0.30"),   # $0.30/metric-month (first 10K)
+    "metrics_10k_250k_per_metric": D("0.10"),    # $0.10/metric-month (10K–250K)
+    "metrics_250k_plus_per_metric": D("0.05"),   # $0.05/metric-month (250K+)
+    "get_metric_data_per_1k": D("0.01"),         # $0.01/1K GetMetricData requests
+    "put_metric_data_per_1k": D("0.01"),         # $0.01/1K PutMetricData requests
+    "metric_update_per_1k": D("0.003"),          # $0.003/1K metric updates
+
+    # Alarms
+    "alarm_standard_per_month": D("0.10"),       # $0.10/alarm (standard resolution)
+    "alarm_high_res_per_month": D("0.30"),       # $0.30/alarm (high-resolution)
+
+    # X-Ray
+    "xray_traces_per_million": D("5.00"),        # $5.00/million traces recorded
+    "xray_segments_per_million": D("1.00"),      # $1.00/million segments recorded
+}
+
+# AWS doesn't negotiate like SaaS vendors, but there are Savings Plans / EDP
+CW_DISCOUNT_LOW = D("0.05")    # 5% off (minimal commitment)
+CW_DISCOUNT_HIGH = D("0.25")   # 25% off (large EDP / enterprise discount)
+
+
+def _cw_tiered_metrics_cost(count: Decimal) -> Decimal:
+    """Calculate tiered CloudWatch custom metrics cost."""
+    cost = D("0")
+    if count <= 0:
+        return cost
+    # First 10,000
+    tier1 = min(count, D("10000"))
+    cost += tier1 * CW_PRICING["metrics_first_10k_per_metric"]
+    # 10,001 – 250,000
+    if count > D("10000"):
+        tier2 = min(count - D("10000"), D("240000"))
+        cost += tier2 * CW_PRICING["metrics_10k_250k_per_metric"]
+    # 250,001+
+    if count > D("250000"):
+        tier3 = count - D("250000")
+        cost += tier3 * CW_PRICING["metrics_250k_plus_per_metric"]
+    return cost
+
+
+def estimate_cloudwatch(ext: CloudWatchExtraction) -> PricingEstimate:
+    """Estimate AWS CloudWatch monthly spend from extracted billing data."""
+    est = PricingEstimate(provider="cloudwatch")
+    items = est.line_items
+
+    # --- PutLogEvents (log ingestion) ---
+    log_gb = ext.total_put_log_events_gb or 0
+    if log_gb > 0:
+        list_price = D(str(log_gb)) * CW_PRICING["put_log_events_per_gb"]
+        items.append(PricingLineItem(
+            category="Logs",
+            description="PutLogEvents (log ingestion)",
+            quantity=f"{log_gb:,.1f} GB/mo",
+            unit_price=f"${CW_PRICING['put_log_events_per_gb']}/GB",
+            monthly_list=list_price,
+            monthly_low=list_price * (1 - CW_DISCOUNT_HIGH),
+            monthly_high=list_price * (1 - CW_DISCOUNT_LOW),
+        ))
+
+    # --- Timed Storage ---
+    storage = ext.total_timed_storage_gb_mo or 0
+    if storage > 0:
+        list_price = D(str(storage)) * CW_PRICING["timed_storage_per_gb_mo"]
+        items.append(PricingLineItem(
+            category="Logs",
+            description="Log Storage (TimedStorage)",
+            quantity=f"{storage:,.1f} GB-Mo",
+            unit_price=f"${CW_PRICING['timed_storage_per_gb_mo']}/GB-Mo",
+            monthly_list=list_price,
+            monthly_low=list_price * (1 - CW_DISCOUNT_HIGH),
+            monthly_high=list_price * (1 - CW_DISCOUNT_LOW),
+        ))
+
+    # --- S3 Egress ---
+    s3_gb = ext.total_s3_egress_gb or 0
+    if s3_gb > 0:
+        list_price = D(str(s3_gb)) * CW_PRICING["s3_egress_per_gb"]
+        items.append(PricingLineItem(
+            category="Logs",
+            description="S3 Egress (log delivery to S3)",
+            quantity=f"{s3_gb:,.1f} GB",
+            unit_price=f"${CW_PRICING['s3_egress_per_gb']}/GB",
+            monthly_list=list_price,
+            monthly_low=list_price * (1 - CW_DISCOUNT_HIGH),
+            monthly_high=list_price * (1 - CW_DISCOUNT_LOW),
+        ))
+
+    # --- Log Insights ---
+    insights_gb = ext.total_start_query_gb or 0
+    if insights_gb > 0:
+        billable_gb = max(D("0"), D(str(insights_gb)) - CW_PRICING["log_insights_free_gb"])
+        list_price = billable_gb * CW_PRICING["log_insights_per_gb"]
+        items.append(PricingLineItem(
+            category="Logs",
+            description="CloudWatch Logs Insights (5 GB free)",
+            quantity=f"{insights_gb:,.1f} GB scanned",
+            unit_price=f"${CW_PRICING['log_insights_per_gb']}/GB",
+            monthly_list=list_price,
+            monthly_low=list_price * (1 - CW_DISCOUNT_HIGH),
+            monthly_high=list_price * (1 - CW_DISCOUNT_LOW),
+        ))
+
+    # --- Custom Metrics (tiered) ---
+    metrics_count = ext.total_custom_metrics_count or 0
+    if metrics_count > 0:
+        list_price = _cw_tiered_metrics_cost(D(str(metrics_count)))
+        items.append(PricingLineItem(
+            category="Metrics",
+            description="Custom Metrics (tiered pricing)",
+            quantity=f"{metrics_count:,.0f} metrics",
+            unit_price="$0.30/$0.10/$0.05 tiered",
+            monthly_list=list_price,
+            monthly_low=list_price * (1 - CW_DISCOUNT_HIGH),
+            monthly_high=list_price * (1 - CW_DISCOUNT_LOW),
+        ))
+
+    # --- GetMetricData / PutMetricData API requests ---
+    api_requests = ext.total_metric_api_requests or 0
+    if api_requests > 0:
+        thousands = D(str(api_requests)) / 1000
+        list_price = thousands * CW_PRICING["get_metric_data_per_1k"]
+        items.append(PricingLineItem(
+            category="Metrics",
+            description="GetMetricData/PutMetricData API",
+            quantity=f"{api_requests:,.0f} requests",
+            unit_price=f"${CW_PRICING['get_metric_data_per_1k']}/1K",
+            monthly_list=list_price,
+            monthly_low=list_price * (1 - CW_DISCOUNT_HIGH),
+            monthly_high=list_price * (1 - CW_DISCOUNT_LOW),
+        ))
+
+    # --- Metric Updates ---
+    updates = ext.total_metric_updates or 0
+    if updates > 0:
+        thousands = D(str(updates)) / 1000
+        list_price = thousands * CW_PRICING["metric_update_per_1k"]
+        items.append(PricingLineItem(
+            category="Metrics",
+            description="Metric Updates",
+            quantity=f"{updates:,.0f} updates",
+            unit_price=f"${CW_PRICING['metric_update_per_1k']}/1K",
+            monthly_list=list_price,
+            monthly_low=list_price * (1 - CW_DISCOUNT_HIGH),
+            monthly_high=list_price * (1 - CW_DISCOUNT_LOW),
+        ))
+
+    # --- Alarms ---
+    alarms = ext.total_alarms_count or 0
+    if alarms > 0:
+        list_price = D(str(alarms)) * CW_PRICING["alarm_standard_per_month"]
+        items.append(PricingLineItem(
+            category="Alarms",
+            description="CloudWatch Alarms (standard resolution)",
+            quantity=f"{alarms:,.0f} alarms",
+            unit_price=f"${CW_PRICING['alarm_standard_per_month']}/alarm",
+            monthly_list=list_price,
+            monthly_low=list_price * (1 - CW_DISCOUNT_HIGH),
+            monthly_high=list_price * (1 - CW_DISCOUNT_LOW),
+        ))
+
+    # --- X-Ray Traces ---
+    traces = ext.total_xray_traces or 0
+    if traces > 0:
+        millions = D(str(traces)) / 1_000_000
+        list_price = millions * CW_PRICING["xray_traces_per_million"]
+        items.append(PricingLineItem(
+            category="Traces",
+            description="X-Ray Traces Recorded",
+            quantity=f"{traces:,.0f} traces",
+            unit_price=f"${CW_PRICING['xray_traces_per_million']}/M traces",
+            monthly_list=list_price,
+            monthly_low=list_price * (1 - CW_DISCOUNT_HIGH),
+            monthly_high=list_price * (1 - CW_DISCOUNT_LOW),
+        ))
+
+    # --- X-Ray Segments ---
+    segments = ext.total_xray_segments or 0
+    if segments > 0:
+        millions = D(str(segments)) / 1_000_000
+        list_price = millions * CW_PRICING["xray_segments_per_million"]
+        items.append(PricingLineItem(
+            category="Traces",
+            description="X-Ray Segments Recorded",
+            quantity=f"{segments:,.0f} segments",
+            unit_price=f"${CW_PRICING['xray_segments_per_million']}/M segments",
+            monthly_list=list_price,
+            monthly_low=list_price * (1 - CW_DISCOUNT_HIGH),
+            monthly_high=list_price * (1 - CW_DISCOUNT_LOW),
+        ))
+
+    # Totals
+    est.total_list = sum(i.monthly_list for i in items)
+    est.total_low = sum(i.monthly_low for i in items)
+    est.total_high = sum(i.monthly_high for i in items)
+
+    est.notes = [
+        "Prices from AWS CloudWatch public pricing (standard regions, on-demand).",
+        "Custom Metrics use tiered pricing: $0.30 (first 10K), $0.10 (10K-250K), $0.05 (250K+).",
+        "Log Insights: first 5 GB/month scanned is free.",
+        "Low estimate assumes ~25% EDP/enterprise discount.",
+        "High estimate assumes ~5% minimal commitment discount.",
+        "Actual costs may vary by region and AWS pricing agreement.",
     ]
 
     return est

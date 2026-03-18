@@ -5,7 +5,7 @@
 {% block content %}
 <div class="max-w-2xl mx-auto">
     <h1 class="text-3xl font-bold text-gray-800 mb-2">Competitor Sizing Upload</h1>
-    <p class="text-gray-500 mb-8">Upload billing screenshots from Datadog or New Relic to calculate Coralogix sizing estimates.</p>
+    <p class="text-gray-500 mb-8">Upload billing screenshots from Datadog, New Relic, or AWS CloudWatch to calculate Coralogix sizing estimates.</p>
 
     {% if error %}
     <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
@@ -28,6 +28,12 @@
                     <input type="radio" name="provider" value="newrelic" class="hidden peer">
                     <div class="peer-checked:bg-cx-blue peer-checked:text-white bg-white border-2 peer-checked:border-cx-blue border-gray-200 rounded-lg px-4 py-3 text-center transition font-medium">
                         New Relic
+                    </div>
+                </label>
+                <label class="provider-option flex-1 cursor-pointer">
+                    <input type="radio" name="provider" value="cloudwatch" class="hidden peer">
+                    <div class="peer-checked:bg-amber-500 peer-checked:text-white bg-white border-2 peer-checked:border-amber-500 border-gray-200 rounded-lg px-4 py-3 text-center transition font-medium">
+                        CloudWatch
                     </div>
                 </label>
             </div>
@@ -108,6 +114,26 @@
             </div>
         </div>
 
+        <div id="cw-examples" class="bg-white border border-gray-200 rounded-lg p-4 hidden">
+            <p class="text-sm font-medium text-gray-600 mb-3">
+                <svg class="w-4 h-4 inline -mt-0.5 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Not sure what to upload? Click to see an example:
+            </p>
+            <div class="flex gap-3">
+                <div class="w-1/2 cursor-pointer group" onclick="openLightbox('/static/img/examples/cw-billing.png', 'AWS CloudWatch — Charges by Service')">
+                    <div class="relative overflow-hidden rounded-lg border border-gray-200 group-hover:border-amber-500 transition">
+                        <img src="/static/img/examples/cw-billing.png" alt="CloudWatch Billing"
+                             class="w-full h-20 object-cover object-top opacity-80 group-hover:opacity-100 transition"
+                             onerror="this.parentElement.parentElement.parentElement.style.display='none'">
+                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1 text-center">Charges by Service</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Tips -->
         <div id="dd-tips" class="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm text-purple-800">
             <p class="font-semibold mb-1">Datadog Tips:</p>
@@ -123,6 +149,15 @@
                 <li>Upload the <strong>Data Management</strong> page screenshot</li>
                 <li>Make sure the "Avg daily ingest" column is visible</li>
                 <li>Include the header showing total daily average if possible</li>
+            </ul>
+        </div>
+        <div id="cw-tips" class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 hidden">
+            <p class="font-semibold mb-1">AWS CloudWatch Tips:</p>
+            <ul class="list-disc list-inside space-y-0.5">
+                <li>Upload AWS Billing screenshots (<strong>Charges by Service → CloudWatch</strong>)</li>
+                <li>Include <strong>all regions</strong> — one screenshot per region is fine</li>
+                <li>Make sure the line items (PutLogEvents, MetricMonitorUsage, etc.) are visible</li>
+                <li>X-Ray data may appear as a separate service line — include it too</li>
             </ul>
         </div>
 

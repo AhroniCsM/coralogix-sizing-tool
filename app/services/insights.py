@@ -63,6 +63,24 @@ NR_CALIBRATION = {
 }
 
 
+CW_CALIBRATION = {
+    "customer_count": 0,  # No calibration data yet — new provider
+    "field_ranges": {
+        "total_put_log_events_gb": {"min": 0, "max": 50000, "typical": "50–5000", "unit": "GB/month"},
+        "total_custom_metrics_count": {"min": 0, "max": 500000, "typical": "1000–50000", "unit": "count"},
+        "total_alarms_count": {"min": 0, "max": 10000, "typical": "10–500", "unit": "count"},
+        "total_xray_traces": {"min": 0, "max": 100000000, "typical": "0–10000000", "unit": "count/month"},
+        "total_xray_segments": {"min": 0, "max": 500000000, "typical": "0–50000000", "unit": "count/month"},
+        "total_start_query_gb": {"min": 0, "max": 10000, "typical": "0–500", "unit": "GB/month"},
+    },
+    "constants": {
+        "CX_LOG_ENRICHMENT_MULTIPLIER": "1.77 (455 bytes CW → 805 bytes CX)",
+        "XRAY_KB_PER_TRACE": 5,
+        "XRAY_KB_PER_SEGMENT": 2,
+    },
+}
+
+
 def get_hints(provider: str) -> list[str]:
     """Return accumulated correction hints + calibration data for extraction prompts."""
     # Start with baked-in calibration from real spreadsheets
@@ -152,7 +170,12 @@ def get_all_insights(provider: str | None = None) -> list[dict]:
 
 def get_calibration_hints(provider: str) -> list[str]:
     """Return baked-in calibration hints for a provider's extraction prompt."""
-    cal = DD_CALIBRATION if provider == "datadog" else NR_CALIBRATION
+    if provider == "datadog":
+        cal = DD_CALIBRATION
+    elif provider == "cloudwatch":
+        cal = CW_CALIBRATION
+    else:
+        cal = NR_CALIBRATION
     hints = [
         f"Based on {cal['customer_count']} real customer sizing spreadsheets:"
     ]
@@ -171,7 +194,7 @@ def learn_from_data_files() -> dict[str, int]:
     """
     results: dict[str, int] = {}
 
-    for provider in ("datadog", "newrelic"):
+    for provider in ("datadog", "newrelic", "cloudwatch"):
         provider_dir = settings.screenshots_dir / provider
         if not provider_dir.exists():
             continue

@@ -15,8 +15,8 @@ from pydantic import BaseModel
 
 from app.config import BASE_DIR, settings
 from app.database import get_db
-from app.models import DatadogExtraction, NewRelicExtraction
-from app.services import datadog, extractor, insights, newrelic, pricing
+from app.models import CloudWatchExtraction, DatadogExtraction, NewRelicExtraction
+from app.services import cloudwatch, datadog, extractor, insights, newrelic, pricing
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -36,10 +36,10 @@ async def upload(
 ):
     """Save screenshots, run GPT-4o Vision extraction, show review form."""
     # Validate provider
-    if provider not in ("datadog", "newrelic"):
+    if provider not in ("datadog", "newrelic", "cloudwatch"):
         return templates.TemplateResponse(
             "index.html",
-            {"request": request, "error": "Invalid provider. Choose Datadog or New Relic."},
+            {"request": request, "error": "Invalid provider. Choose Datadog, New Relic, or CloudWatch."},
             status_code=400,
         )
 
@@ -82,6 +82,8 @@ async def upload(
     try:
         if provider == "datadog":
             result = await extractor.extract_datadog(saved_paths, hints)
+        elif provider == "cloudwatch":
+            result = await extractor.extract_cloudwatch(saved_paths, hints)
         else:
             result = await extractor.extract_newrelic(saved_paths, hints)
     except Exception as e:
@@ -136,7 +138,7 @@ class PastePayload(BaseModel):
 @router.post("/paste")
 async def paste_upload(request: Request, payload: PastePayload):
     """Accept pasted screenshots as base64 data URLs, extract and return run_id."""
-    if payload.provider not in ("datadog", "newrelic"):
+    if payload.provider not in ("datadog", "newrelic", "cloudwatch"):
         return JSONResponse({"error": "Invalid provider"}, status_code=400)
 
     if not payload.images:
@@ -171,6 +173,8 @@ async def paste_upload(request: Request, payload: PastePayload):
     try:
         if payload.provider == "datadog":
             result = await extractor.extract_datadog(saved_paths, hints)
+        elif payload.provider == "cloudwatch":
+            result = await extractor.extract_cloudwatch(saved_paths, hints)
         else:
             result = await extractor.extract_newrelic(saved_paths, hints)
     except Exception as e:
@@ -212,7 +216,7 @@ async def calculate(request: Request):
     run_id = int(form.get("run_id", 0))
     provider = str(form.get("provider", ""))
 
-    if not run_id or provider not in ("datadog", "newrelic"):
+    if not run_id or provider not in ("datadog", "newrelic", "cloudwatch"):
         return RedirectResponse("/", status_code=303)
 
     # Build corrected extraction from form values
@@ -224,6 +228,12 @@ async def calculate(request: Request):
             corrected[key] = None
         elif key.endswith("_is_hourly"):
             corrected[key] = value == "true"
+        elif key == "regions":
+            # regions is a JSON dict — parse it back
+            try:
+                corrected[key] = json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                corrected[key] = {}
         else:
             try:
                 corrected[key] = float(value)
@@ -236,6 +246,10 @@ async def calculate(request: Request):
             ext = DatadogExtraction(**corrected)
             result = datadog.calculate(ext)
             price_est = pricing.estimate_datadog(ext)
+        elif provider == "cloudwatch":
+            ext = CloudWatchExtraction(**corrected)
+            result = cloudwatch.calculate(ext)
+            price_est = pricing.estimate_cloudwatch(ext)
         else:
             ext = NewRelicExtraction(**corrected)
             result = newrelic.calculate(ext)

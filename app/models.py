@@ -60,6 +60,32 @@ class DatadogExtraction(BaseModel):
 # ---------------------------------------------------------------------------
 # New Relic extraction — Avg daily ingest GB per source
 # ---------------------------------------------------------------------------
+class CloudWatchExtraction(BaseModel):
+    """AWS CloudWatch billing extraction — aggregated across regions."""
+    # Per-region breakdown: {"eu-north-1": {"put_log_events_gb": 173.5, ...}, ...}
+    regions: dict = {}
+
+    # Totals across all regions
+    total_put_log_events_gb: float | None = None  # monthly log ingest
+    total_put_log_events_cost: float | None = None  # monthly USD
+    total_timed_storage_gb_mo: float | None = None
+    total_custom_metrics_count: float | None = None
+    total_metric_api_requests: float | None = None
+    total_metric_updates: float | None = None
+    total_alarms_count: float | None = None
+    total_start_query_gb: float | None = None
+    total_s3_egress_gb: float | None = None
+    total_xray_traces: float | None = None
+    total_xray_segments: float | None = None
+
+    # CloudWatch total cost from billing
+    total_cloudwatch_cost: float | None = None
+
+    # Metadata
+    missing_fields: list[str] = []
+    confidence: dict[str, str] = {}
+
+
 class NewRelicExtraction(BaseModel):
     # Logs sources
     logging_gb_day: float | None = None

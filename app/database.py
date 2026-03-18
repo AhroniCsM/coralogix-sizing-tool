@@ -70,7 +70,7 @@ def _upload_db_to_gcs() -> None:
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sizing_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    provider TEXT NOT NULL CHECK(provider IN ('datadog', 'newrelic')),
+    provider TEXT NOT NULL CHECK(provider IN ('datadog', 'newrelic', 'cloudwatch')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     raw_extraction TEXT NOT NULL,
     corrected_values TEXT,
