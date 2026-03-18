@@ -131,28 +131,23 @@ def calculate(ext: DatadogExtraction) -> SizingResult:
     infra_ts = (total_hosts + total_containers) * TS_PER_NODE + serverless_ts
     calculated_num_series = infra_ts + custom_metrics
 
-    # If Metrics Overview available, prefer it
+    # ALWAYS use calculated NumSeries (matches real SE spreadsheet methodology).
+    # Metrics Overview includes internal/system metrics not relevant for CX sizing.
+    metrics_num_series = int(calculated_num_series)
+    details["metrics_source"] = "Calculated from infrastructure"
+
+    # If Metrics Overview available, show as reference for validation only
     if ext.total_metrics_from_overview is not None and ext.total_metrics_from_overview > 0:
-        metrics_num_series = int(D(str(ext.total_metrics_from_overview)))
-        details["metrics_source"] = "Metrics Overview screenshot"
-        # Validation
+        overview_val = int(D(str(ext.total_metrics_from_overview)))
+        details["metrics_overview_reference"] = str(overview_val)
         if calculated_num_series > 0:
-            ratio = D(str(ext.total_metrics_from_overview)) / calculated_num_series
+            ratio = D(str(overview_val)) / calculated_num_series
             if ratio > 2 or ratio < D("0.5"):
                 warnings.append(
-                    f"DISCREPANCY: Metrics Overview shows {ext.total_metrics_from_overview:,.0f} "
-                    f"but infrastructure calculation gives {int(calculated_num_series):,}. "
-                    "Using Metrics Overview value."
+                    f"NOTE: Metrics Overview shows {overview_val:,} but infrastructure "
+                    f"calculation gives {metrics_num_series:,}. Using calculated value "
+                    f"(Metrics Overview includes internal metrics not relevant for CX sizing)."
                 )
-    else:
-        metrics_num_series = int(calculated_num_series)
-        details["metrics_source"] = "Calculated from infrastructure"
-        if ext.total_metrics_from_overview is None:
-            warnings.append(
-                "No Metrics Overview screenshot — NumSeries calculated from "
-                f"infrastructure ({int(total_hosts)} hosts + {int(total_containers)} "
-                f"containers) × 750 + {int(custom_metrics)} custom metrics"
-            )
 
     metrics_gb_day = D(str(metrics_num_series)) / 1000
 
