@@ -5,6 +5,7 @@ import json
 import logging
 import shutil
 import uuid
+from decimal import Decimal as D
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
