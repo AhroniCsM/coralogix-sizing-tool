@@ -22,13 +22,23 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: init DB, learn from any existing CSVs."""
-    init_db()
-    logger.info("Database initialized")
+    """Startup: ensure dirs, init DB, learn from data files."""
+    from app.config import settings
 
-    data_counts = learn_from_data_files()
-    if any(data_counts.values()):
-        logger.info("Learned from data files: %s", data_counts)
+    # Ensure data directories exist (important for fresh Render deploys)
+    settings.screenshots_dir.mkdir(parents=True, exist_ok=True)
+    (settings.screenshots_dir / "datadog").mkdir(exist_ok=True)
+    (settings.screenshots_dir / "newrelic").mkdir(exist_ok=True)
+
+    init_db()
+    logger.info("Database initialized (BASE_DIR=%s)", BASE_DIR)
+
+    try:
+        data_counts = learn_from_data_files()
+        if any(data_counts.values()):
+            logger.info("Learned from data files: %s", data_counts)
+    except Exception as e:
+        logger.warning("Data file learning failed (non-fatal): %s", e)
 
     yield
 
