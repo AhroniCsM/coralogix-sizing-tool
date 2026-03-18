@@ -66,16 +66,14 @@ class TestDatadogLogs:
 
 
 class TestDatadogMetrics:
-    def test_metrics_from_overview_is_reference_only(self):
-        """Metrics Overview is stored as reference, NOT used as primary value."""
+    def test_metrics_from_overview(self):
+        """Metrics Overview is preferred when available (per Notion guide)."""
         ext = DatadogExtraction(
             total_metrics_from_overview=7_070_000,
             infra_hosts=500,
         )
         result = dd_calculate(ext)
-        # Should use calculated: 500 × 750 = 375,000 — NOT 7.07M
-        assert result.metrics_num_series == 375_000
-        assert result.details.get("metrics_overview_reference") == "7070000"
+        assert result.metrics_num_series == 7_070_000
 
     def test_metrics_calculated(self):
         ext = DatadogExtraction(
@@ -88,14 +86,14 @@ class TestDatadogMetrics:
         assert result.metrics_num_series == 475_000
 
     def test_metrics_discrepancy_warning(self):
-        """Big gap between Overview and calculated triggers a NOTE warning."""
+        """Big gap between Overview and calculated triggers a DISCREPANCY warning."""
         ext = DatadogExtraction(
             total_metrics_from_overview=10_000_000,
             infra_hosts=10,  # calculated: 10 × 750 = 7,500
         )
         result = dd_calculate(ext)
-        assert result.metrics_num_series == 7_500  # calculated, not 10M
-        assert any("NOTE" in w for w in result.warnings)
+        assert result.metrics_num_series == 10_000_000  # uses Overview
+        assert any("DISCREPANCY" in w for w in result.warnings)
 
 
 class TestDatadogTraces:
@@ -203,20 +201,33 @@ class TestTrigoReference:
         result = dd_calculate(ext)
         assert result.logs_gb_day == D("294.33")
 
-    def test_trigo_metrics_uses_calculated_not_overview(self):
-        """Trigo: calculated=1,668,042. Metrics Overview 4.09M must NOT override."""
+    def test_trigo_metrics_with_overview(self):
+        """When Metrics Overview is provided, it takes priority over calculated."""
         ext = DatadogExtraction(
             infra_hosts=249,
             apm_hosts=77,
             network_hosts=25,
-            container_hours=1_080_000,  # always hourly, converted internally
+            container_hours=1_080_000,
             custom_metrics=167_000,
             total_metrics_from_overview=4_090_000,
         )
         result = dd_calculate(ext)
-        # Must use calculated, not the 4.09M overview
-        assert result.metrics_num_series < 2_000_000
-        assert "NOTE" in " ".join(result.warnings)
+        # Uses Metrics Overview value per Notion guide
+        assert result.metrics_num_series == 4_090_000
+
+    def test_trigo_metrics_without_overview(self):
+        """Without Metrics Overview, falls back to calculated value."""
+        ext = DatadogExtraction(
+            infra_hosts=249,
+            apm_hosts=77,
+            network_hosts=25,
+            container_hours=1_080_000,
+            custom_metrics=167_000,
+        )
+        result = dd_calculate(ext)
+        # Calculated: (249+77+25+1650+0)×750 + 167000 ≈ 1.67M
+        assert result.metrics_num_series > 1_500_000
+        assert result.metrics_num_series < 1_800_000
 
     def test_trigo_traces(self):
         """Trigo: 9,640 GB/month → 321.33 GB/day."""
@@ -225,13 +236,13 @@ class TestTrigoReference:
         assert result.traces_gb_day == D("321.33")
 
     def test_metrics_overview_discrepancy_warning(self):
-        """When overview differs >2x from calculated, emit a warning."""
+        """When overview differs >2x from calculated, emit DISCREPANCY warning."""
         ext = DatadogExtraction(
             infra_hosts=100,
             custom_metrics=50_000,
             total_metrics_from_overview=5_000_000,
         )
         result = dd_calculate(ext)
-        # Should use calculated (100*750 + 50000 = 125000), NOT 5M
-        assert result.metrics_num_series == 125_000
-        assert any("NOTE" in w for w in result.warnings)
+        # Uses Overview (5M), calculated is 125K — big gap triggers warning
+        assert result.metrics_num_series == 5_000_000
+        assert any("DISCREPANCY" in w for w in result.warnings)
