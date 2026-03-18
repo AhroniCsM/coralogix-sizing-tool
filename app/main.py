@@ -4,13 +4,14 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
-from app.config import BASE_DIR
+from app.config import BASE_DIR, settings
 from app.database import init_db
-from app.routers import feedback, sizing
+from app.routers import auth, feedback, sizing
 from app.services.insights import learn_from_data_files
 
 logging.basicConfig(
@@ -18,6 +19,10 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Paths that don't require authentication
+PUBLIC_PATHS = {"/login", "/auth/google", "/auth/callback", "/health", "/logout"}
+PUBLIC_PREFIXES = ("/static/",)
 
 
 def _seed_data_dir() -> None:
@@ -74,12 +79,37 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Session middleware for OAuth (must be added before routes)
+app.add_middleware(SessionMiddleware, secret_key=settings.session_secret)
+
 # Absolute paths for static and templates
 _static_dir = BASE_DIR / "app" / "static"
 app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
+app.include_router(auth.router)
 app.include_router(sizing.router)
 app.include_router(feedback.router)
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    """Redirect unauthenticated users to /login for protected routes."""
+    path = request.url.path
+
+    # Allow public paths
+    if path in PUBLIC_PATHS or any(path.startswith(p) for p in PUBLIC_PREFIXES):
+        return await call_next(request)
+
+    # Check if OAuth is configured — if not, skip auth (local dev)
+    if not settings.google_client_id:
+        return await call_next(request)
+
+    # Check session
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+
+    return await call_next(request)
 
 
 @app.get("/health")

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Coralogix Sizing Tool{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/style.css">
     <script>
@@ -29,13 +30,21 @@
     <!-- Nav -->
     <nav class="bg-cx-dark text-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-            <a href="/" class="text-xl font-bold tracking-tight">
-                <span class="text-cx-green">CX</span> Sizing Tool
+            <a href="/" class="flex items-center gap-2 text-xl font-bold tracking-tight">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" class="w-8 h-8">
+                    <circle cx="16" cy="16" r="15" fill="#00b894"/>
+                    <path d="M9 16 L14 21 L23 11" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                </svg>
+                <span>Coralogix <span class="font-normal text-gray-300">Sizing Tool</span></span>
             </a>
-            <div class="flex gap-4 text-sm">
+            <div class="flex items-center gap-4 text-sm">
                 <a href="/" class="hover:text-cx-green transition">Upload</a>
                 <a href="/history" class="hover:text-cx-green transition">History</a>
-                <a href="/insights" class="hover:text-cx-green transition">Insights</a>
+                {% if request.session and request.session.get('user') %}
+                <span class="text-gray-400 hidden sm:inline">|</span>
+                <span class="text-gray-400 text-xs hidden sm:inline">{{ request.session['user']['email'] }}</span>
+                <a href="/logout" class="text-gray-400 hover:text-red-400 transition text-xs">(Logout)</a>
+                {% endif %}
             </div>
         </div>
     </nav>
@@ -47,7 +56,7 @@
 
     <!-- Footer -->
     <footer class="text-center text-gray-400 text-xs py-4">
-        Coralogix SE Sizing Tool &mdash; Powered by Israel SE Team
+        Coralogix Sizing Tool
     </footer>
 
     <script src="/static/js/app.js"></script>
