@@ -1,5 +1,6 @@
 """Sizing router — upload screenshots, extract values, calculate results."""
 
+import base64
 import json
 import logging
 import shutil
@@ -7,15 +8,14 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
-from app.config import settings
+from app.config import BASE_DIR, settings
 from app.database import get_db
 from app.models import DatadogExtraction, NewRelicExtraction
 from app.services import datadog, extractor, insights, newrelic
-
-from app.config import BASE_DIR
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -119,6 +119,75 @@ async def upload(
     )
 
 
+class PastePayload(BaseModel):
+    provider: str
+    images: list[str]  # base64 data URLs
+
+
+@router.post("/paste")
+async def paste_upload(payload: PastePayload):
+    """Accept pasted screenshots as base64 data URLs, extract and return run_id."""
+    if payload.provider not in ("datadog", "newrelic"):
+        return JSONResponse({"error": "Invalid provider"}, status_code=400)
+
+    if not payload.images:
+        return JSONResponse({"error": "No images pasted"}, status_code=400)
+
+    provider_dir = settings.screenshots_dir / payload.provider
+    provider_dir.mkdir(parents=True, exist_ok=True)
+
+    saved_paths: list[Path] = []
+    for i, data_url in enumerate(payload.images):
+        # Parse data URL: "data:image/png;base64,iVBOR..."
+        try:
+            header, b64_data = data_url.split(",", 1)
+            # Extract mime type
+            mime = header.split(":")[1].split(";")[0] if ":" in header else "image/png"
+            ext = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp",
+                   "image/gif": ".gif"}.get(mime, ".png")
+            img_bytes = base64.b64decode(b64_data)
+        except Exception:
+            continue
+
+        fname = f"{uuid.uuid4().hex[:8]}_paste_{i}{ext}"
+        dest = provider_dir / fname
+        dest.write_bytes(img_bytes)
+        saved_paths.append(dest)
+
+    if not saved_paths:
+        return JSONResponse({"error": "Failed to process pasted images"}, status_code=400)
+
+    hints = insights.get_hints(payload.provider)
+
+    try:
+        if payload.provider == "datadog":
+            extraction = await extractor.extract_datadog(saved_paths, hints)
+        else:
+            extraction = await extractor.extract_newrelic(saved_paths, hints)
+    except Exception as e:
+        return JSONResponse({"error": f"Extraction failed: {e}"}, status_code=500)
+
+    extraction_dict = extraction.model_dump()
+    with get_db() as db:
+        cursor = db.execute(
+            """INSERT INTO sizing_runs (provider, raw_extraction, screenshot_paths, missing_fields)
+               VALUES (?, ?, ?, ?)""",
+            (
+                payload.provider,
+                json.dumps(extraction_dict),
+                json.dumps([str(p) for p in saved_paths]),
+                json.dumps(extraction_dict.get("missing_fields", [])),
+            ),
+        )
+        run_id = cursor.lastrowid
+
+    return JSONResponse({
+        "run_id": run_id,
+        "provider": payload.provider,
+        "extraction": extraction_dict,
+    })
+
+
 @router.post("/calculate")
 async def calculate(request: Request):
     """Accept corrected values, run formulas, show results."""
@@ -185,6 +254,32 @@ async def calculate(request: Request):
             "extraction": corrected,
             "step": "results",
             "results": result_dict,
+        },
+    )
+
+
+@router.post("/paste-result")
+async def paste_result(request: Request):
+    """Render result page from paste API response."""
+    form = await request.form()
+    run_id = int(form.get("run_id", 0))
+    provider = str(form.get("provider", ""))
+    extraction_json = str(form.get("extraction", "{}"))
+
+    try:
+        extraction_dict = json.loads(extraction_json)
+    except json.JSONDecodeError:
+        return RedirectResponse("/", status_code=303)
+
+    return templates.TemplateResponse(
+        "result.html",
+        {
+            "request": request,
+            "run_id": run_id,
+            "provider": provider,
+            "extraction": extraction_dict,
+            "step": "review",
+            "results": None,
         },
     )
 

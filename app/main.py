@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import BASE_DIR
 from app.database import init_db
 from app.routers import feedback, sizing
-from app.services.insights import learn_from_csv_files
+from app.services.insights import learn_from_data_files
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,9 +26,9 @@ async def lifespan(app: FastAPI):
     init_db()
     logger.info("Database initialized")
 
-    csv_counts = learn_from_csv_files()
-    if any(csv_counts.values()):
-        logger.info("Learned from CSVs: %s", csv_counts)
+    data_counts = learn_from_data_files()
+    if any(data_counts.values()):
+        logger.info("Learned from data files: %s", data_counts)
 
     yield
 

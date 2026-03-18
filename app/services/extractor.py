@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 # Prompts
 # ---------------------------------------------------------------------------
 
-DATADOG_PROMPT = """You are analyzing Datadog billing screenshots. Extract ALL fields listed below.
+DATADOG_PROMPT = """You are an expert Coralogix SE analyzing Datadog billing screenshots to produce accurate sizing estimates.
+You have been calibrated against 16 real customer conversions. Extract ALL fields listed below.
 
 CRITICAL RULES:
 - Report the RAW value from the screenshot exactly as shown
@@ -29,9 +30,22 @@ CRITICAL RULES:
 - If a field is not visible in the screenshots, set it to null
 - DO NOT estimate or calculate — only extract what you see
 - For "Indexed Logs" with retention labels like "(3 Day Retention)", extract the number in millions
-- "Ingested Spans" may be in GB or TB — check carefully
+- "Ingested Spans" may be in GB or TB — THIS IS THE #1 ERROR, check the suffix very carefully!
 - On-Demand sub-labels show the same number — ignore them, just use the main value
 - If you see a "Metrics Overview" screenshot, extract "Total Metrics" from the top-right number
+- IMPORTANT: Make sure you're reading from the BILLABLE tab (not "All")
+- Watch for "Analyzed Logs (Security)" — this is SEPARATE from ingested logs
+
+TYPICAL VALUE RANGES (from 16 real customers — use for sanity checking):
+- Infra Hosts: 65 to 4,094 (often shown as hourly: 46K–2.8M hours)
+- APM Hosts: 0 to 700 (hourly: 0–510K hours)
+- Containers: 0 to 15,431 (always shown as hours: 0–11M hours)
+- Custom Metrics: 135 to 435,417 (may show as hourly)
+- Ingested Logs: 0 to 404,000 GB/month
+- Ingested Spans: 0 to 67,000 GB/month (WATCH: 67 TB = 67,000 GB, not 67 GB!)
+- Indexed Spans: 0 to 1,740 million/month
+- RUM Sessions: 0 to 5,296/month (many customers have 0)
+- Serverless Invocations: 0 to 21M/month
 
 Return ONLY valid JSON matching this schema:
 {
@@ -76,12 +90,26 @@ IMPORTANT UNIT CONVERSIONS to apply before returning:
 - If "Total Metrics: 7.07M" → total_metrics_from_overview = 7070000
 """
 
-NEWRELIC_PROMPT = """You are analyzing a New Relic Data Management screenshot.
+NEWRELIC_PROMPT = """You are an expert Coralogix SE analyzing a New Relic Data Management screenshot.
+You have been calibrated against 11 real customer conversions.
 
 The screenshot shows a table with columns: Source, Avg daily ingest, Last 30 days, % of total.
 
 Extract the "Avg daily ingest" value (in GB) for each of these sources.
 If a source is not visible, set it to null.
+
+TYPICAL VALUE RANGES (from 11 real customers — use for sanity checking):
+- Logging: 0 to 4,187 GB/day (can be 0 for metrics-heavy customers)
+- Metrics: 9 to 7,433 GB/day
+- Infrastructure Integrations: 0 to 2,300 GB/day
+- Infrastructure Hosts: 0 to 95 GB/day
+- Infrastructure Processes: 0 to 1,170 GB/day
+- APM events: 0 to 7,753 GB/day
+- Tracing: 10 to 3,942 GB/day
+- Browser events: 0 to 504 GB/day
+- Custom events: 0 to 3,145 GB/day (usually mapped to Logs, sometimes Traces)
+- Mobile events: rare, usually 0
+- Serverless: rare, usually 0
 
 Return ONLY valid JSON matching this schema:
 {
