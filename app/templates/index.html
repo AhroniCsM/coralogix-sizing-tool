@@ -13,7 +13,7 @@
     </div>
     {% endif %}
 
-    <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-6">
+    <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-6" id="upload-form">
         <!-- Provider Toggle -->
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Provider</label>
@@ -37,15 +37,24 @@
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Screenshots</label>
             <div id="drop-zone"
-                 class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-cx-purple transition cursor-pointer bg-white">
+                 class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-cx-purple transition cursor-pointer bg-white"
+                 tabindex="0">
                 <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                           d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                 </svg>
-                <p class="text-gray-600 mb-1">Drag & drop screenshots here</p>
-                <p class="text-gray-400 text-sm">or click to browse (PNG, JPG, WebP)</p>
+                <p class="text-gray-600 mb-1">Drag & drop, click to browse, or <strong>Ctrl+V</strong> to paste</p>
+                <p class="text-gray-400 text-sm">PNG, JPG, WebP — paste screenshots directly from clipboard</p>
                 <input type="file" name="screenshots" multiple accept="image/*"
                        class="hidden" id="file-input">
+            </div>
+            <!-- Paste preview area -->
+            <div id="paste-preview" class="mt-3 hidden">
+                <div class="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/></svg>
+                    <span id="paste-count">0</span> screenshot(s) pasted from clipboard
+                </div>
+                <div id="paste-thumbs" class="flex gap-2 flex-wrap"></div>
             </div>
             <div id="file-list" class="mt-3 space-y-1 text-sm text-gray-600"></div>
         </div>
