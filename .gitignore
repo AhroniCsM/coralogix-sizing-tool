@@ -1,6 +1,10 @@
 .env
 data/sizing.db
+data/sizing.db-wal
+data/sizing.db-shm
 data/screenshots/
 __pycache__/
 *.pyc
 .pytest_cache/
+.venv/
+venv/
