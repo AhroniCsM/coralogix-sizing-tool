@@ -110,7 +110,12 @@ app = FastAPI(
 # Middleware order matters: add_middleware uses LIFO, so SessionMiddleware (added last)
 # wraps outermost → it runs first, sets up session → then AuthMiddleware can access it.
 app.add_middleware(AuthMiddleware)
-app.add_middleware(SessionMiddleware, secret_key=settings.session_secret)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret,
+    same_site="lax",
+    https_only=True,
+)
 
 # Absolute paths for static and templates
 _static_dir = BASE_DIR / "app" / "static"
