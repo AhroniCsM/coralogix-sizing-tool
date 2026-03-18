@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if step == 'review' %}Review Extraction{% else %}Sizing Results{% endif %} — CX Sizing Tool
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+
+    {% if error %}
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">{{ error }}</div>
+    {% endif %}
+
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">
+                {% if step == 'review' %}Review Extracted Values{% else %}Sizing Results{% endif %}
+            </h1>
+            <p class="text-gray-500 text-sm">
+                Run #{{ run_id }} &mdash;
+                <span class="inline-block px-2 py-0.5 rounded text-xs font-medium
+                    {% if provider == 'datadog' %}bg-purple-100 text-purple-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                    {{ provider | title }}
+                </span>
+            </p>
+        </div>
+        <a href="/" class="text-sm text-cx-blue hover:underline">&larr; New Upload</a>
+    </div>
+
+    {% if step == 'review' %}
+    <!-- =============== EXTRACTION REVIEW FORM =============== -->
+    <form action="/calculate" method="post" class="space-y-6">
+        <input type="hidden" name="run_id" value="{{ run_id }}">
+        <input type="hidden" name="provider" value="{{ provider }}">
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <p class="text-sm text-gray-500 mb-4">
+                Review the extracted values below. Correct any errors before calculating.
+                <span class="inline-block w-3 h-3 bg-green-200 rounded-full ml-2"></span> High confidence
+                <span class="inline-block w-3 h-3 bg-yellow-200 rounded-full ml-1"></span> Medium
+                <span class="inline-block w-3 h-3 bg-red-200 rounded-full ml-1"></span> Missing
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% set confidence = extraction.get('confidence', {}) %}
+                {% set missing = extraction.get('missing_fields', []) %}
+
+                {% for key, value in extraction.items() %}
+                    {% if key not in ('missing_fields', 'confidence') %}
+                    <div class="relative">
+                        <label class="block text-xs font-medium text-gray-500 mb-1">
+                            {{ key }}
+                            {% if key in confidence %}
+                                {% set conf = confidence[key] %}
+                                <span class="ml-1 px-1.5 py-0.5 rounded text-xs
+                                    {% if conf == 'high' %}bg-green-100 text-green-700
+                                    {% elif conf == 'medium' %}bg-yellow-100 text-yellow-700
+                                    {% else %}bg-red-100 text-red-700{% endif %}">
+                                    {{ conf }}
+                                </span>
+                            {% endif %}
+                        </label>
+                        {% if key.endswith('_is_hourly') %}
+                            <select name="{{ key }}" class="w-full border rounded px-3 py-2 text-sm bg-white">
+                                <option value="false" {% if not value %}selected{% endif %}>No (count)</option>
+                                <option value="true" {% if value %}selected{% endif %}>Yes (hourly)</option>
+                            </select>
+                        {% else %}
+                            <input type="text" name="{{ key }}"
+                                   value="{{ value if value is not none else '' }}"
+                                   placeholder="null"
+                                   class="w-full border rounded px-3 py-2 text-sm
+                                          {% if value is none or key in missing %}border-red-300 bg-red-50
+                                          {% elif key in confidence and confidence[key] == 'medium' %}border-yellow-300 bg-yellow-50
+                                          {% else %}border-gray-200{% endif %}">
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if extraction.get('missing_fields') %}
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+            <p class="font-semibold mb-1">Missing fields:</p>
+            <p>{{ extraction['missing_fields'] | join(', ') }}</p>
+        </div>
+        {% endif %}
+
+        <button type="submit"
+                class="w-full bg-cx-green hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition">
+            Calculate Sizing
+        </button>
+    </form>
+
+    {% else %}
+    <!-- =============== SIZING RESULTS =============== -->
+    {% if results %}
+
+    <!-- Big Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white rounded-lg shadow p-5 border-t-4 border-cx-green">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Logs</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1">{{ results.logs_gb_day }}</p>
+            <p class="text-sm text-gray-500">GB / day</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-5 border-t-4 border-cx-purple">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Metrics</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1">{{ "{:,}".format(results.metrics_num_series) }}</p>
+            <p class="text-sm text-gray-500">NumSeries</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-5 border-t-4 border-cx-blue">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Traces</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1">{{ results.traces_gb_day }}</p>
+            <p class="text-sm text-gray-500">GB / day</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-5 border-t-4 border-cx-orange">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">RUM</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1">
+                {% if results.rum_sessions_day %}{{ "{:,}".format(results.rum_sessions_day) }} sessions{% else %}{{ results.rum_gb_day }} GB{% endif %}
+            </p>
+            <p class="text-sm text-gray-500">/ day</p>
+        </div>
+    </div>
+
+    <!-- Warnings -->
+    {% if results.warnings %}
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <p class="font-semibold text-yellow-800 mb-2">Warnings & Notes</p>
+        <ul class="space-y-1 text-sm text-yellow-700">
+            {% for w in results.warnings %}
+            <li class="flex items-start gap-2">
+                <span class="mt-0.5">
+                    {% if 'MISSING' in w %}<span class="text-red-500 font-bold">!</span>
+                    {% elif 'FALLBACK' in w %}<span class="text-orange-500 font-bold">~</span>
+                    {% else %}<span class="text-yellow-500">i</span>{% endif %}
+                </span>
+                {{ w }}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Details -->
+    {% if results.details %}
+    <div class="bg-white rounded-lg shadow p-6 mb-8">
+        <h3 class="font-semibold text-gray-700 mb-3">Calculation Details</h3>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+            {% for key, val in results.details.items() %}
+            <div class="flex justify-between border-b border-gray-100 py-1">
+                <span class="text-gray-500">{{ key }}</span>
+                <span class="font-mono text-gray-800">{{ val }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Feedback Section -->
+    <div class="bg-white rounded-lg shadow p-6" id="feedback-section">
+        <h3 class="font-semibold text-gray-700 mb-3">Was this accurate?</h3>
+        <div class="flex gap-3 mb-4">
+            <button onclick="submitFeedback(true)" id="btn-accurate"
+                    class="flex-1 bg-green-100 hover:bg-green-200 text-green-800 font-medium py-2 px-4 rounded-lg transition">
+                Yes, looks good
+            </button>
+            <button onclick="submitFeedback(false)" id="btn-inaccurate"
+                    class="flex-1 bg-red-100 hover:bg-red-200 text-red-800 font-medium py-2 px-4 rounded-lg transition">
+                No, needs correction
+            </button>
+        </div>
+        <div id="feedback-notes" class="hidden space-y-3">
+            <textarea id="notes" rows="2" placeholder="What was wrong? (optional)"
+                      class="w-full border rounded px-3 py-2 text-sm"></textarea>
+            <p class="text-xs text-gray-400">Corrections will help improve future extractions.</p>
+        </div>
+        <div id="feedback-success" class="hidden text-green-600 font-medium text-sm mt-2">
+            Feedback recorded. Thank you!
+        </div>
+    </div>
+
+    <script>
+        const runId = {{ run_id }};
+
+        function submitFeedback(isAccurate) {
+            if (!isAccurate) {
+                document.getElementById('feedback-notes').classList.remove('hidden');
+                // On second click, actually submit
+                if (document.getElementById('feedback-notes').dataset.shown === 'true') {
+                    doSubmit(false);
+                } else {
+                    document.getElementById('feedback-notes').dataset.shown = 'true';
+                    document.getElementById('btn-inaccurate').textContent = 'Submit Feedback';
+                }
+                return;
+            }
+            doSubmit(true);
+        }
+
+        function doSubmit(isAccurate) {
+            const notes = document.getElementById('notes')?.value || '';
+            const form = new FormData();
+            form.append('is_accurate', isAccurate);
+            form.append('notes', notes);
+            form.append('field_corrections', '{}');
+
+            fetch(`/feedback/${runId}`, { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(() => {
+                    document.getElementById('feedback-section').innerHTML =
+                        '<p class="text-green-600 font-medium">Feedback recorded. Thank you!</p>';
+                })
+                .catch(err => alert('Failed to submit: ' + err));
+        }
+    </script>
+
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+/* Custom styles for Coralogix Sizing Tool */
+
+/* Drop zone active state */
+#drop-zone.drag-over {
+    border-color: #00b894;
+    background-color: #f0fdf9;
+}
+
+/* Smooth transitions */
+.provider-option div {
+    transition: all 0.2s ease;
+}
+
+/* File list items */
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+}
+
+.file-item .remove-btn {
+    color: #d63031;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+/* Loading spinner */
+.spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid #e2e8f0;
+    border-top-color: #00b894;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Result cards hover */
+.bg-white.rounded-lg.shadow {
+    transition: box-shadow 0.2s ease;
+}
+
+.bg-white.rounded-lg.shadow:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}

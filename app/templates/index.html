@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Upload — CX Sizing Tool{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-3xl font-bold text-gray-800 mb-2">Competitor Sizing Upload</h1>
+    <p class="text-gray-500 mb-8">Upload billing screenshots from Datadog or New Relic to calculate Coralogix sizing estimates.</p>
+
+    {% if error %}
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-6">
+        <!-- Provider Toggle -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Provider</label>
+            <div class="flex gap-3" id="provider-toggle">
+                <label class="provider-option flex-1 cursor-pointer">
+                    <input type="radio" name="provider" value="datadog" checked class="hidden peer">
+                    <div class="peer-checked:bg-cx-purple peer-checked:text-white bg-white border-2 peer-checked:border-cx-purple border-gray-200 rounded-lg px-4 py-3 text-center transition font-medium">
+                        Datadog
+                    </div>
+                </label>
+                <label class="provider-option flex-1 cursor-pointer">
+                    <input type="radio" name="provider" value="newrelic" class="hidden peer">
+                    <div class="peer-checked:bg-cx-blue peer-checked:text-white bg-white border-2 peer-checked:border-cx-blue border-gray-200 rounded-lg px-4 py-3 text-center transition font-medium">
+                        New Relic
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Upload Area -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Screenshots</label>
+            <div id="drop-zone"
+                 class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-cx-purple transition cursor-pointer bg-white">
+                <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                <p class="text-gray-600 mb-1">Drag & drop screenshots here</p>
+                <p class="text-gray-400 text-sm">or click to browse (PNG, JPG, WebP)</p>
+                <input type="file" name="screenshots" multiple accept="image/*"
+                       class="hidden" id="file-input">
+            </div>
+            <div id="file-list" class="mt-3 space-y-1 text-sm text-gray-600"></div>
+        </div>
+
+        <!-- Tips -->
+        <div id="dd-tips" class="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm text-purple-800">
+            <p class="font-semibold mb-1">Datadog Tips:</p>
+            <ul class="list-disc list-inside space-y-0.5">
+                <li>Upload the <strong>Billable</strong> tab (not "All")</li>
+                <li>Include the Metrics Overview screenshot if available</li>
+                <li>Multiple screenshots are fine — upload them all</li>
+            </ul>
+        </div>
+        <div id="nr-tips" class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800 hidden">
+            <p class="font-semibold mb-1">New Relic Tips:</p>
+            <ul class="list-disc list-inside space-y-0.5">
+                <li>Upload the <strong>Data Management</strong> page screenshot</li>
+                <li>Make sure the "Avg daily ingest" column is visible</li>
+                <li>Include the header showing total daily average if possible</li>
+            </ul>
+        </div>
+
+        <button type="submit" id="submit-btn"
+                class="w-full bg-cx-green hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+            Extract & Analyze
+        </button>
+    </form>
+</div>
+{% endblock %}

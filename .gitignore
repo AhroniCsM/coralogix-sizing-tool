@@ -1,0 +1,6 @@
+.env
+data/sizing.db
+data/screenshots/
+__pycache__/
+*.pyc
+.pytest_cache/

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}History — CX Sizing Tool{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">Sizing History</h1>
+
+    {% if not runs %}
+    <div class="bg-white rounded-lg shadow p-8 text-center text-gray-400">
+        <p class="text-lg mb-2">No sizing runs yet.</p>
+        <a href="/" class="text-cx-blue hover:underline">Upload your first screenshot &rarr;</a>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                <tr>
+                    <th class="px-4 py-3 text-left">#</th>
+                    <th class="px-4 py-3 text-left">Provider</th>
+                    <th class="px-4 py-3 text-left">Date</th>
+                    <th class="px-4 py-3 text-left">Status</th>
+                    <th class="px-4 py-3 text-right">Logs GB/day</th>
+                    <th class="px-4 py-3 text-right">Metrics NS</th>
+                    <th class="px-4 py-3 text-right">Traces GB/day</th>
+                    <th class="px-4 py-3 text-center">Feedback</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for run in runs %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-mono text-gray-500">{{ run.id }}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 rounded text-xs font-medium
+                            {% if run.provider == 'datadog' %}bg-purple-100 text-purple-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                            {{ run.provider | title }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ run.created_at }}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 rounded text-xs
+                            {% if run.status == 'calculated' %}bg-green-100 text-green-700
+                            {% elif run.status == 'feedback_received' %}bg-blue-100 text-blue-700
+                            {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                            {{ run.status }}
+                        </span>
+                    </td>
+                    {% if run.results_parsed %}
+                    <td class="px-4 py-3 text-right font-mono">{{ run.results_parsed.logs_gb_day }}</td>
+                    <td class="px-4 py-3 text-right font-mono">{{ "{:,}".format(run.results_parsed.metrics_num_series) }}</td>
+                    <td class="px-4 py-3 text-right font-mono">{{ run.results_parsed.traces_gb_day }}</td>
+                    {% else %}
+                    <td class="px-4 py-3 text-right text-gray-300">—</td>
+                    <td class="px-4 py-3 text-right text-gray-300">—</td>
+                    <td class="px-4 py-3 text-right text-gray-300">—</td>
+                    {% endif %}
+                    <td class="px-4 py-3 text-center">
+                        {% if run.feedback_accurate is not none %}
+                            {% if run.feedback_accurate %}<span class="text-green-600">&#10003;</span>
+                            {% else %}<span class="text-red-600">&#10007;</span>{% endif %}
+                        {% else %}
+                            <span class="text-gray-300">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
