@@ -139,6 +139,8 @@ function setupProviderToggle() {
     const radios = document.querySelectorAll('input[name="provider"]');
     const ddTips = document.getElementById('dd-tips');
     const nrTips = document.getElementById('nr-tips');
+    const ddExamples = document.getElementById('dd-examples');
+    const nrExamples = document.getElementById('nr-examples');
 
     if (!radios.length || !ddTips || !nrTips) return;
 
@@ -147,9 +149,13 @@ function setupProviderToggle() {
             if (radio.value === 'datadog') {
                 ddTips.classList.remove('hidden');
                 nrTips.classList.add('hidden');
+                if (ddExamples) ddExamples.classList.remove('hidden');
+                if (nrExamples) nrExamples.classList.add('hidden');
             } else {
                 ddTips.classList.add('hidden');
                 nrTips.classList.remove('hidden');
+                if (ddExamples) ddExamples.classList.add('hidden');
+                if (nrExamples) nrExamples.classList.remove('hidden');
             }
         });
     });
