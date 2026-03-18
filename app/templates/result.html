@@ -61,7 +61,9 @@
                     <div class="relative">
                         <label class="block text-xs font-medium text-gray-500 mb-1">
                             {{ key }}
-                            {% if key in confidence %}
+                            {% if key in missing %}
+                                <span class="ml-1 px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-700">missing</span>
+                            {% elif key in confidence %}
                                 {% set conf = confidence[key] %}
                                 <span class="ml-1 px-1.5 py-0.5 rounded text-xs
                                     {% if conf == 'high' %}bg-green-100 text-green-700
@@ -69,6 +71,11 @@
                                     {% else %}bg-red-100 text-red-700{% endif %}">
                                     {{ conf }}
                                 </span>
+                            {% elif value is none or value == '' %}
+                                <span class="ml-1 px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-700">missing</span>
+                            {% elif confidence %}
+                                {# confidence dict exists but field not in it — assume high #}
+                                <span class="ml-1 px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">high</span>
                             {% endif %}
                         </label>
                         {% if key.endswith('_is_hourly') %}

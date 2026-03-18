@@ -97,7 +97,7 @@ Return ONLY valid JSON matching this schema:
   "error_tracking_events": <number or null>,
   "total_metrics_from_overview": <number or null — from Metrics Overview screenshot>,
   "missing_fields": [<list of field names not found in screenshots>],
-  "confidence": {<field_name>: "high"|"medium"|"low" for fields where you're uncertain}
+  "confidence": {<field_name>: "high"|"medium"|"low" for EVERY field above — ALWAYS include ALL fields, not just uncertain ones}
 }
 
 IMPORTANT UNIT CONVERSIONS to apply before returning:
@@ -146,7 +146,7 @@ Return ONLY valid JSON matching this schema:
   "browser_events_gb_day": <number in GB or null>,
   "mobile_events_gb_day": <number in GB or null>,
   "missing_fields": [<list of source names not found>],
-  "confidence": {<field_name>: "high"|"medium"|"low" for uncertain fields}
+  "confidence": {<field_name>: "high"|"medium"|"low" for EVERY field above — ALWAYS include ALL fields, not just uncertain ones}
 }
 
 ALSO extract from the page header if visible:
