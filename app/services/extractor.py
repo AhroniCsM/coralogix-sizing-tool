@@ -1,6 +1,6 @@
-"""Claude Vision API service for extracting billing values from screenshots.
+"""OpenAI GPT-4o Vision service for extracting billing values from screenshots.
 
-Sends screenshots to Claude with structured JSON extraction prompts.
+Sends screenshots to GPT-4o with structured JSON extraction prompts.
 Appends dynamic hints from past feedback (extraction_insights table).
 """
 
@@ -9,7 +9,7 @@ import json
 import logging
 from pathlib import Path
 
-import anthropic
+import openai
 
 from app.config import settings
 from app.models import DatadogExtraction, NewRelicExtraction
@@ -138,8 +138,8 @@ Include these as extra fields: "total_daily_gb", "total_30d_gb", "account_info".
 """
 
 
-def _image_to_base64(path: Path) -> tuple[str, str]:
-    """Read an image file and return (base64_data, media_type)."""
+def _image_to_base64_url(path: Path) -> str:
+    """Read an image file and return a data URL for OpenAI vision."""
     suffix = path.suffix.lower()
     media_types = {
         ".png": "image/png",
@@ -150,23 +150,34 @@ def _image_to_base64(path: Path) -> tuple[str, str]:
     }
     media_type = media_types.get(suffix, "image/png")
     data = base64.standard_b64encode(path.read_bytes()).decode("utf-8")
-    return data, media_type
+    return f"data:{media_type};base64,{data}"
+
+
+def _parse_json_response(raw_text: str) -> dict:
+    """Parse JSON from LLM response, handling markdown code blocks."""
+    json_str = raw_text
+    if "```" in json_str:
+        if "```json" in json_str:
+            json_str = json_str.split("```json")[-1].split("```")[0]
+        else:
+            json_str = json_str.split("```")[1].split("```")[0]
+    return json.loads(json_str.strip())
 
 
 async def extract_datadog(
     screenshot_paths: list[Path],
     hints: list[str] | None = None,
 ) -> DatadogExtraction:
-    """Extract Datadog billing values from screenshots using Claude Vision."""
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    """Extract Datadog billing values from screenshots using GPT-4o Vision."""
+    client = openai.OpenAI(api_key=settings.openai_api_key)
 
     # Build content blocks: images first, then prompt
     content: list[dict] = []
     for path in screenshot_paths:
-        b64, media_type = _image_to_base64(path)
+        url = _image_to_base64_url(path)
         content.append({
-            "type": "image",
-            "source": {"type": "base64", "media_type": media_type, "data": b64},
+            "type": "image_url",
+            "image_url": {"url": url, "detail": "high"},
         })
 
     prompt = DATADOG_PROMPT
@@ -177,22 +188,16 @@ async def extract_datadog(
 
     content.append({"type": "text", "text": prompt})
 
-    response = client.messages.create(
-        model=settings.claude_model,
+    response = client.chat.completions.create(
+        model=settings.openai_model,
         max_tokens=4096,
         messages=[{"role": "user", "content": content}],
     )
 
-    raw_text = response.content[0].text
+    raw_text = response.choices[0].message.content
     logger.info("Datadog extraction raw response: %s", raw_text[:500])
 
-    # Parse JSON from response (handle markdown code blocks)
-    json_str = raw_text
-    if "```" in json_str:
-        json_str = json_str.split("```json")[-1].split("```")[0] if "```json" in json_str else json_str.split("```")[1].split("```")[0]
-    json_str = json_str.strip()
-
-    data = json.loads(json_str)
+    data = _parse_json_response(raw_text)
     return DatadogExtraction(**data)
 
 
@@ -200,15 +205,15 @@ async def extract_newrelic(
     screenshot_paths: list[Path],
     hints: list[str] | None = None,
 ) -> NewRelicExtraction:
-    """Extract New Relic Data Management values from screenshot using Claude Vision."""
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    """Extract New Relic Data Management values from screenshot using GPT-4o Vision."""
+    client = openai.OpenAI(api_key=settings.openai_api_key)
 
     content: list[dict] = []
     for path in screenshot_paths:
-        b64, media_type = _image_to_base64(path)
+        url = _image_to_base64_url(path)
         content.append({
-            "type": "image",
-            "source": {"type": "base64", "media_type": media_type, "data": b64},
+            "type": "image_url",
+            "image_url": {"url": url, "detail": "high"},
         })
 
     prompt = NEWRELIC_PROMPT
@@ -219,19 +224,14 @@ async def extract_newrelic(
 
     content.append({"type": "text", "text": prompt})
 
-    response = client.messages.create(
-        model=settings.claude_model,
+    response = client.chat.completions.create(
+        model=settings.openai_model,
         max_tokens=4096,
         messages=[{"role": "user", "content": content}],
     )
 
-    raw_text = response.content[0].text
+    raw_text = response.choices[0].message.content
     logger.info("New Relic extraction raw response: %s", raw_text[:500])
 
-    json_str = raw_text
-    if "```" in json_str:
-        json_str = json_str.split("```json")[-1].split("```")[0] if "```json" in json_str else json_str.split("```")[1].split("```")[0]
-    json_str = json_str.strip()
-
-    data = json.loads(json_str)
+    data = _parse_json_response(raw_text)
     return NewRelicExtraction(**data)
