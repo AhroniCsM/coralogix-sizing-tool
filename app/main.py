@@ -113,6 +113,7 @@ app.add_middleware(AuthMiddleware)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret,
+    session_cookie="__session",  # Firebase Hosting only forwards __session cookie
     same_site="lax",
     https_only=True,
 )
