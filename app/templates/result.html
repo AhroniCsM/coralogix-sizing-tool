@@ -177,21 +177,39 @@
         <p class="text-xs text-gray-400 mb-4">Based on extracted usage — actual pricing varies by contract</p>
 
         <!-- Price Range Summary -->
-        <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-3 gap-4 mb-4">
             <div class="bg-green-50 rounded-lg p-4 text-center border border-green-200">
                 <p class="text-xs text-green-600 uppercase tracking-wide">Low Estimate</p>
                 <p class="text-2xl font-bold text-green-700 mt-1">${{ "{:,.0f}".format(pricing.total_low | float) }}</p>
-                <p class="text-xs text-green-500">Enterprise commitment</p>
+                <p class="text-xs text-green-500">/ month</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4 text-center border border-gray-200">
                 <p class="text-xs text-gray-500 uppercase tracking-wide">List Price</p>
                 <p class="text-2xl font-bold text-gray-700 mt-1">${{ "{:,.0f}".format(pricing.total_list | float) }}</p>
-                <p class="text-xs text-gray-400">On-demand / pay-as-you-go</p>
+                <p class="text-xs text-gray-400">/ month</p>
             </div>
             <div class="bg-red-50 rounded-lg p-4 text-center border border-red-200">
                 <p class="text-xs text-red-600 uppercase tracking-wide">High Estimate</p>
                 <p class="text-2xl font-bold text-red-700 mt-1">${{ "{:,.0f}".format(pricing.total_high | float) }}</p>
-                <p class="text-xs text-red-500">Annual commitment</p>
+                <p class="text-xs text-red-500">/ month</p>
+            </div>
+        </div>
+
+        <!-- MRR / ARR -->
+        <div class="flex items-center justify-center gap-6 mb-6 py-2 px-4 bg-gray-50 rounded-lg border border-gray-100 text-sm">
+            <div class="flex items-center gap-2">
+                <span class="text-gray-500 font-medium">MRR</span>
+                <span class="font-semibold text-gray-700">${{ "{:,.0f}".format(pricing.total_low | float) }}–${{ "{:,.0f}".format(pricing.total_high | float) }}</span>
+            </div>
+            <span class="text-gray-300">|</span>
+            <div class="flex items-center gap-2">
+                <span class="text-cx-blue font-medium">ARR</span>
+                <span class="font-semibold text-cx-blue">${{ "{:,.0f}".format((pricing.total_low | float) * 12) }}–${{ "{:,.0f}".format((pricing.total_high | float) * 12) }}</span>
+            </div>
+            <span class="text-gray-300">|</span>
+            <div class="flex items-center gap-2">
+                <span class="text-gray-400 text-xs">List ARR</span>
+                <span class="font-mono text-gray-500 text-xs">${{ "{:,.0f}".format((pricing.total_list | float) * 12) }}</span>
             </div>
         </div>
 
