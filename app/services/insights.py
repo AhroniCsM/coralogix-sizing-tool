@@ -447,17 +447,30 @@ def _learn_nr_xlsx_values(db, rows: list[list[str]], filename: str) -> None:
                 break
 
 
-def get_run_history(limit: int = 50) -> list[dict]:
-    """Return recent sizing runs with their feedback status."""
+def get_run_history(limit: int = 50, user_email: str | None = None) -> list[dict]:
+    """Return recent sizing runs with their feedback status, optionally filtered by user."""
     with get_db() as db:
-        rows = db.execute(
-            """SELECT s.*,
-                      f.is_accurate as feedback_accurate,
-                      f.notes as feedback_notes
-               FROM sizing_runs s
-               LEFT JOIN feedback f ON f.run_id = s.id
-               ORDER BY s.created_at DESC
-               LIMIT ?""",
-            (limit,),
-        ).fetchall()
+        if user_email:
+            rows = db.execute(
+                """SELECT s.*,
+                          f.is_accurate as feedback_accurate,
+                          f.notes as feedback_notes
+                   FROM sizing_runs s
+                   LEFT JOIN feedback f ON f.run_id = s.id
+                   WHERE s.user_email = ?
+                   ORDER BY s.created_at DESC
+                   LIMIT ?""",
+                (user_email, limit),
+            ).fetchall()
+        else:
+            rows = db.execute(
+                """SELECT s.*,
+                          f.is_accurate as feedback_accurate,
+                          f.notes as feedback_notes
+                   FROM sizing_runs s
+                   LEFT JOIN feedback f ON f.run_id = s.id
+                   ORDER BY s.created_at DESC
+                   LIMIT ?""",
+                (limit,),
+            ).fetchall()
     return [dict(row) for row in rows]

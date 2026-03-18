@@ -93,15 +93,18 @@ async def upload(
 
     # Store run in DB
     extraction_dict = extraction.model_dump()
+    user = request.session.get("user")
+    user_email = user["email"] if user else None
     with get_db() as db:
         cursor = db.execute(
-            """INSERT INTO sizing_runs (provider, raw_extraction, screenshot_paths, missing_fields)
-               VALUES (?, ?, ?, ?)""",
+            """INSERT INTO sizing_runs (provider, raw_extraction, screenshot_paths, missing_fields, user_email)
+               VALUES (?, ?, ?, ?, ?)""",
             (
                 provider,
                 json.dumps(extraction_dict),
                 json.dumps([str(p) for p in saved_paths]),
                 json.dumps(extraction_dict.get("missing_fields", [])),
+                user_email,
             ),
         )
         run_id = cursor.lastrowid
@@ -125,7 +128,7 @@ class PastePayload(BaseModel):
 
 
 @router.post("/paste")
-async def paste_upload(payload: PastePayload):
+async def paste_upload(request: Request, payload: PastePayload):
     """Accept pasted screenshots as base64 data URLs, extract and return run_id."""
     if payload.provider not in ("datadog", "newrelic"):
         return JSONResponse({"error": "Invalid provider"}, status_code=400)
@@ -168,15 +171,18 @@ async def paste_upload(payload: PastePayload):
         return JSONResponse({"error": f"Extraction failed: {e}"}, status_code=500)
 
     extraction_dict = extraction.model_dump()
+    user = request.session.get("user")
+    user_email = user["email"] if user else None
     with get_db() as db:
         cursor = db.execute(
-            """INSERT INTO sizing_runs (provider, raw_extraction, screenshot_paths, missing_fields)
-               VALUES (?, ?, ?, ?)""",
+            """INSERT INTO sizing_runs (provider, raw_extraction, screenshot_paths, missing_fields, user_email)
+               VALUES (?, ?, ?, ?, ?)""",
             (
                 payload.provider,
                 json.dumps(extraction_dict),
                 json.dumps([str(p) for p in saved_paths]),
                 json.dumps(extraction_dict.get("missing_fields", [])),
+                user_email,
             ),
         )
         run_id = cursor.lastrowid
@@ -286,7 +292,9 @@ async def paste_result(request: Request):
 
 @router.get("/history", response_class=HTMLResponse)
 async def history(request: Request):
-    runs = insights.get_run_history()
+    user = request.session.get("user")
+    user_email = user["email"] if user else None
+    runs = insights.get_run_history(user_email=user_email)
     # Parse JSON fields for display
     for run in runs:
         if run.get("results"):

@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS sizing_runs (
     results TEXT,
     missing_fields TEXT,
     screenshot_paths TEXT NOT NULL,
-    status TEXT DEFAULT 'extracted'
+    status TEXT DEFAULT 'extracted',
+    user_email TEXT
 );
 
 CREATE TABLE IF NOT EXISTS feedback (
@@ -44,6 +45,10 @@ def init_db() -> None:
     settings.db_path.parent.mkdir(parents=True, exist_ok=True)
     with get_db() as db:
         db.executescript(SCHEMA)
+        # Migration: add user_email column if missing (existing DBs)
+        cols = [row[1] for row in db.execute("PRAGMA table_info(sizing_runs)").fetchall()]
+        if "user_email" not in cols:
+            db.execute("ALTER TABLE sizing_runs ADD COLUMN user_email TEXT")
 
 
 @contextmanager
