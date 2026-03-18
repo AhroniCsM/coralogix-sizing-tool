@@ -50,19 +50,19 @@ TYPICAL VALUE RANGES (from 16 real customers — use for sanity checking):
 Return ONLY valid JSON matching this schema:
 {
   "infra_hosts": <number or null>,
-  "infra_hosts_is_hourly": <true if label says "Hours">,
+  "infra_hosts_is_hourly": <true if label says "Hours", false otherwise>,
   "apm_hosts": <number or null>,
-  "apm_hosts_is_hourly": <true if label says "Hours">,
+  "apm_hosts_is_hourly": <true if label says "Hours", false otherwise>,
   "profiled_hosts": <number or null>,
-  "profiled_hosts_is_hourly": <true if label says "Hours">,
+  "profiled_hosts_is_hourly": <true if label says "Hours", false otherwise>,
   "network_hosts": <number or null>,
-  "network_hosts_is_hourly": <true if label says "Hours">,
+  "network_hosts_is_hourly": <true if label says "Hours", false otherwise>,
   "fargate_tasks": <number or null>,
   "container_hours": <number or null — this is ALWAYS hourly>,
   "profiled_containers": <number or null>,
-  "profiled_containers_is_hourly": <true if label says "Hours">,
+  "profiled_containers_is_hourly": <true if label says "Hours", false otherwise>,
   "custom_metrics": <number or null>,
-  "custom_metrics_is_hourly": <true if label says "Hours">,
+  "custom_metrics_is_hourly": <true if label says "Hours", false otherwise>,
   "indexed_logs_3d": <number in MILLIONS or null>,
   "indexed_logs_7d": <number in MILLIONS or null>,
   "indexed_logs_15d": <number in MILLIONS or null>,
@@ -161,7 +161,14 @@ def _parse_json_response(raw_text: str) -> dict:
             json_str = json_str.split("```json")[-1].split("```")[0]
         else:
             json_str = json_str.split("```")[1].split("```")[0]
-    return json.loads(json_str.strip())
+    data = json.loads(json_str.strip())
+
+    # Sanitize: coerce null booleans to False (GPT-4o returns null when unsure)
+    for key in list(data.keys()):
+        if key.endswith("_is_hourly") and data[key] is None:
+            data[key] = False
+
+    return data
 
 
 async def extract_datadog(
