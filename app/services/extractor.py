@@ -25,6 +25,7 @@ You have been calibrated against 16 real customer conversions. Extract ALL field
 
 CRITICAL RULES:
 - Report the RAW value from the screenshot exactly as shown
+- MULTIPLE SCREENSHOTS FROM DIFFERENT TIME PERIODS: If the same field appears in more than one screenshot with different values, ALWAYS return the HIGHEST value. We size for peak usage. Add a note in the confidence field like "max of 2 screenshots".
 - For each field, note if the label says "Hours" (e.g., "Infra Host Hours", "Container Hours")
 - Parse suffixes: K = 1,000 / M = 1,000,000 / B = 1,000,000,000 / TB = 1,000 GB
 - If a field is not visible in the screenshots, set it to null
@@ -98,6 +99,8 @@ The screenshot shows a table with columns: Source, Avg daily ingest, Last 30 day
 
 Extract the "Avg daily ingest" value (in GB) for each of these sources.
 If a source is not visible, set it to null.
+
+MULTIPLE SCREENSHOTS: If the same source appears in more than one screenshot with different values, ALWAYS return the HIGHEST value. We size for peak usage.
 
 TYPICAL VALUE RANGES (from 11 real customers — use for sanity checking):
 - Logging: 0 to 4,187 GB/day (can be 0 for metrics-heavy customers)
