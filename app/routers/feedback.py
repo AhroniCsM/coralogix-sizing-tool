@@ -9,9 +9,11 @@ from fastapi.templating import Jinja2Templates
 
 from app.services import insights
 
+from app.config import BASE_DIR
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
 
 @router.post("/feedback/{run_id}")

@@ -15,9 +15,11 @@ from app.database import get_db
 from app.models import DatadogExtraction, NewRelicExtraction
 from app.services import datadog, extractor, insights, newrelic
 
+from app.config import BASE_DIR
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
 
 @router.get("/", response_class=HTMLResponse)

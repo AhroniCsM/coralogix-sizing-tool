@@ -2,10 +2,13 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.config import BASE_DIR
 from app.database import init_db
 from app.routers import feedback, sizing
 from app.services.insights import learn_from_csv_files
@@ -36,6 +39,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+# Absolute paths for static and templates
+_static_dir = BASE_DIR / "app" / "static"
+app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
 app.include_router(sizing.router)
 app.include_router(feedback.router)
+
+
+@app.get("/health")
+async def health():
+    """Health check for load balancers / container orchestrators."""
+    return JSONResponse({"status": "ok"})
