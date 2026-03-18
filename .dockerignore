@@ -4,6 +4,5 @@ __pycache__
 *.pyc
 .pytest_cache
 data/sizing.db
-data/screenshots/
 *.md
 tests/

@@ -20,15 +20,40 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _seed_data_dir() -> None:
+    """Copy bundled reference data to the persistent volume on first run."""
+    from app.config import settings
+    import shutil
+
+    bundled = BASE_DIR / "seed_data"
+    if not bundled.exists():
+        return
+
+    for provider in ("datadog", "newrelic"):
+        src = bundled / provider
+        dst = settings.screenshots_dir / provider
+        if not src.exists():
+            continue
+        dst.mkdir(parents=True, exist_ok=True)
+        for f in src.iterdir():
+            target = dst / f.name
+            if not target.exists():
+                shutil.copy2(f, target)
+                logger.info("Seeded %s → %s", f.name, provider)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: ensure dirs, init DB, learn from data files."""
+    """Startup: ensure dirs, init DB, seed data, learn from data files."""
     from app.config import settings
 
-    # Ensure data directories exist (important for fresh Render deploys)
+    # Ensure data directories exist (important for fresh deploys)
     settings.screenshots_dir.mkdir(parents=True, exist_ok=True)
     (settings.screenshots_dir / "datadog").mkdir(exist_ok=True)
     (settings.screenshots_dir / "newrelic").mkdir(exist_ok=True)
+
+    # Seed reference spreadsheets from bundled data (first deploy only)
+    _seed_data_dir()
 
     init_db()
     logger.info("Database initialized (BASE_DIR=%s)", BASE_DIR)
