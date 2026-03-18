@@ -34,7 +34,8 @@ CRITICAL RULES:
 - On-Demand sub-labels show the same number — ignore them, just use the main value
 - If you see a "Metrics Overview" screenshot, extract "Total Metrics" from the top-right number
 - IMPORTANT: Make sure you're reading from the BILLABLE tab (not "All")
-- Watch for "Analyzed Logs (Security)" — this is SEPARATE from ingested logs
+- "Analyzed Logs (Security)" is a SEPARATE line item from "Ingested Logs" — you MUST extract BOTH! They are added together for total log volume. This is the #2 most common extraction error.
+- Example: "Analyzed Logs (Security): 3,270 GB" → analyzed_logs_security_gb = 3270. Do NOT add this to ingested_logs_gb.
 
 TYPICAL VALUE RANGES (from 16 real customers — use for sanity checking):
 - Infra Hosts: 65 to 4,094 (often shown as hourly: 46K–2.8M hours)
@@ -69,7 +70,7 @@ Return ONLY valid JSON matching this schema:
   "indexed_logs_live": <number in MILLIONS or null>,
   "indexed_logs_90d": <number in MILLIONS or null>,
   "ingested_logs_gb": <number in GB or null>,
-  "analyzed_logs_security_gb": <number in GB or null>,
+  "analyzed_logs_security_gb": <number in GB or null — CRITICAL: look for "Analyzed Logs (Security)" separately!>,
   "ingested_spans_gb": <number in GB or null — convert TB to GB if needed>,
   "indexed_spans_million": <number in MILLIONS or null>,
   "custom_events": <number or null>,
