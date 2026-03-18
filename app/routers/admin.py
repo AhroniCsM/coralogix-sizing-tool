@@ -76,6 +76,24 @@ async def dashboard(request: Request):
             "SELECT COUNT(*) as c FROM sizing_runs WHERE created_at >= DATE('now', '-7 days')"
         ).fetchone()["c"]
 
+        # API cost stats
+        cost_row = db.execute(
+            """SELECT COALESCE(SUM(api_cost_usd), 0) as total_cost,
+                      COALESCE(SUM(prompt_tokens), 0) as total_prompt,
+                      COALESCE(SUM(completion_tokens), 0) as total_completion
+               FROM sizing_runs"""
+        ).fetchone()
+        total_cost = cost_row["total_cost"]
+        total_prompt_tokens = cost_row["total_prompt"]
+        total_completion_tokens = cost_row["total_completion"]
+
+        cost_today = db.execute(
+            "SELECT COALESCE(SUM(api_cost_usd), 0) as c FROM sizing_runs WHERE DATE(created_at) = DATE('now')"
+        ).fetchone()["c"]
+        cost_week = db.execute(
+            "SELECT COALESCE(SUM(api_cost_usd), 0) as c FROM sizing_runs WHERE created_at >= DATE('now', '-7 days')"
+        ).fetchone()["c"]
+
         # Recent activity (last 20 runs with feedback)
         recent_runs = db.execute(
             """SELECT s.id, s.user_email, s.provider, s.created_at, s.status,
@@ -116,6 +134,11 @@ async def dashboard(request: Request):
         "accurate_count": accurate_count,
         "inaccurate_count": inaccurate_count,
         "accuracy_pct": round(100 * accurate_count / total_feedback, 1) if total_feedback else 0,
+        "total_cost": round(total_cost, 4),
+        "cost_today": round(cost_today, 4),
+        "cost_week": round(cost_week, 4),
+        "total_tokens": total_prompt_tokens + total_completion_tokens,
+        "avg_cost_per_run": round(total_cost / total_runs, 4) if total_runs else 0,
     }
 
     return templates.TemplateResponse(

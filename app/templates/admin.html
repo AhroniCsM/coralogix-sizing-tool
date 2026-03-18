@@ -23,7 +23,7 @@
     {% endif %}
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         <div class="bg-white rounded-lg shadow p-5">
             <p class="text-xs text-gray-500 uppercase tracking-wide">Total Runs</p>
             <p class="text-3xl font-bold text-gray-800 mt-1">{{ stats.total_runs }}</p>
@@ -51,6 +51,14 @@
                 <div class="h-full rounded-full {% if stats.accuracy_pct >= 80 %}bg-cx-green{% elif stats.accuracy_pct >= 50 %}bg-cx-orange{% else %}bg-cx-red{% endif %}"
                      style="width: {{ stats.accuracy_pct }}%"></div>
             </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-5 border-l-4 border-cx-orange">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">API Cost (GPT-4o)</p>
+            <p class="text-3xl font-bold text-cx-orange mt-1">${{ "%.2f"|format(stats.total_cost) }}</p>
+            <p class="text-xs text-gray-400 mt-1">
+                ${{ "%.2f"|format(stats.cost_today) }} today / ${{ "%.2f"|format(stats.cost_week) }} week
+            </p>
+            <p class="text-xs text-gray-400">${{ "%.4f"|format(stats.avg_cost_per_run) }} avg/run</p>
         </div>
     </div>
 

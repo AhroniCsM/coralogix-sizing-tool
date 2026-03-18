@@ -16,7 +16,10 @@ CREATE TABLE IF NOT EXISTS sizing_runs (
     missing_fields TEXT,
     screenshot_paths TEXT NOT NULL,
     status TEXT DEFAULT 'extracted',
-    user_email TEXT
+    user_email TEXT,
+    prompt_tokens INTEGER DEFAULT 0,
+    completion_tokens INTEGER DEFAULT 0,
+    api_cost_usd REAL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS feedback (
@@ -54,6 +57,12 @@ def init_db() -> None:
         cols = [row[1] for row in db.execute("PRAGMA table_info(sizing_runs)").fetchall()]
         if "user_email" not in cols:
             db.execute("ALTER TABLE sizing_runs ADD COLUMN user_email TEXT")
+
+        # Migration: add API cost tracking columns if missing
+        if "api_cost_usd" not in cols:
+            db.execute("ALTER TABLE sizing_runs ADD COLUMN prompt_tokens INTEGER DEFAULT 0")
+            db.execute("ALTER TABLE sizing_runs ADD COLUMN completion_tokens INTEGER DEFAULT 0")
+            db.execute("ALTER TABLE sizing_runs ADD COLUMN api_cost_usd REAL DEFAULT 0")
 
         # Seed initial admin
         db.execute(

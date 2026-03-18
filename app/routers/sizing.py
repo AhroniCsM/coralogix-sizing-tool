@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from app.config import BASE_DIR, settings
 from app.database import get_db
 from app.models import DatadogExtraction, NewRelicExtraction
-from app.services import datadog, extractor, insights, newrelic
+from app.services import datadog, extractor, insights, newrelic, pricing
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -77,12 +77,12 @@ async def upload(
     # Get hints from past feedback
     hints = insights.get_hints(provider)
 
-    # Extract values using Claude Vision
+    # Extract values using GPT-4o Vision
     try:
         if provider == "datadog":
-            extraction = await extractor.extract_datadog(saved_paths, hints)
+            result = await extractor.extract_datadog(saved_paths, hints)
         else:
-            extraction = await extractor.extract_newrelic(saved_paths, hints)
+            result = await extractor.extract_newrelic(saved_paths, hints)
     except Exception as e:
         logger.exception("Extraction failed")
         return templates.TemplateResponse(
@@ -92,19 +92,24 @@ async def upload(
         )
 
     # Store run in DB
-    extraction_dict = extraction.model_dump()
+    extraction_dict = result.extraction.model_dump()
     user = request.session.get("user")
     user_email = user["email"] if user else None
     with get_db() as db:
         cursor = db.execute(
-            """INSERT INTO sizing_runs (provider, raw_extraction, screenshot_paths, missing_fields, user_email)
-               VALUES (?, ?, ?, ?, ?)""",
+            """INSERT INTO sizing_runs
+               (provider, raw_extraction, screenshot_paths, missing_fields, user_email,
+                prompt_tokens, completion_tokens, api_cost_usd)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 provider,
                 json.dumps(extraction_dict),
                 json.dumps([str(p) for p in saved_paths]),
                 json.dumps(extraction_dict.get("missing_fields", [])),
                 user_email,
+                result.prompt_tokens,
+                result.completion_tokens,
+                result.api_cost_usd,
             ),
         )
         run_id = cursor.lastrowid
@@ -164,25 +169,30 @@ async def paste_upload(request: Request, payload: PastePayload):
 
     try:
         if payload.provider == "datadog":
-            extraction = await extractor.extract_datadog(saved_paths, hints)
+            result = await extractor.extract_datadog(saved_paths, hints)
         else:
-            extraction = await extractor.extract_newrelic(saved_paths, hints)
+            result = await extractor.extract_newrelic(saved_paths, hints)
     except Exception as e:
         return JSONResponse({"error": f"Extraction failed: {e}"}, status_code=500)
 
-    extraction_dict = extraction.model_dump()
+    extraction_dict = result.extraction.model_dump()
     user = request.session.get("user")
     user_email = user["email"] if user else None
     with get_db() as db:
         cursor = db.execute(
-            """INSERT INTO sizing_runs (provider, raw_extraction, screenshot_paths, missing_fields, user_email)
-               VALUES (?, ?, ?, ?, ?)""",
+            """INSERT INTO sizing_runs
+               (provider, raw_extraction, screenshot_paths, missing_fields, user_email,
+                prompt_tokens, completion_tokens, api_cost_usd)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 payload.provider,
                 json.dumps(extraction_dict),
                 json.dumps([str(p) for p in saved_paths]),
                 json.dumps(extraction_dict.get("missing_fields", [])),
                 user_email,
+                result.prompt_tokens,
+                result.completion_tokens,
+                result.api_cost_usd,
             ),
         )
         run_id = cursor.lastrowid
@@ -224,9 +234,11 @@ async def calculate(request: Request):
         if provider == "datadog":
             ext = DatadogExtraction(**corrected)
             result = datadog.calculate(ext)
+            price_est = pricing.estimate_datadog(ext)
         else:
             ext = NewRelicExtraction(**corrected)
             result = newrelic.calculate(ext)
+            price_est = pricing.estimate_newrelic(ext)
     except Exception as e:
         logger.exception("Calculation failed")
         return templates.TemplateResponse(
@@ -244,6 +256,27 @@ async def calculate(request: Request):
 
     result_dict = json.loads(result.model_dump_json())
 
+    # Serialize pricing estimate
+    pricing_dict = {
+        "provider": price_est.provider,
+        "total_list": str(price_est.total_list.quantize(D("0.01"))),
+        "total_low": str(price_est.total_low.quantize(D("0.01"))),
+        "total_high": str(price_est.total_high.quantize(D("0.01"))),
+        "notes": price_est.notes,
+        "line_items": [
+            {
+                "category": li.category,
+                "description": li.description,
+                "quantity": li.quantity,
+                "unit_price": li.unit_price,
+                "monthly_list": str(li.monthly_list.quantize(D("0.01"))),
+                "monthly_low": str(li.monthly_low.quantize(D("0.01"))),
+                "monthly_high": str(li.monthly_high.quantize(D("0.01"))),
+            }
+            for li in price_est.line_items
+        ],
+    }
+
     # Update DB
     with get_db() as db:
         db.execute(
@@ -260,6 +293,7 @@ async def calculate(request: Request):
             "extraction": corrected,
             "step": "results",
             "results": result_dict,
+            "pricing": pricing_dict,
         },
     )
 

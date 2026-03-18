@@ -11,8 +11,24 @@ from pathlib import Path
 
 import openai
 
+from dataclasses import dataclass
+
 from app.config import settings
 from app.models import DatadogExtraction, NewRelicExtraction
+
+
+# GPT-4o pricing (per 1M tokens) as of 2024
+GPT4O_INPUT_PRICE = 2.50   # $2.50 per 1M input tokens
+GPT4O_OUTPUT_PRICE = 10.00  # $10.00 per 1M output tokens
+
+
+@dataclass
+class ExtractionResult:
+    """Extraction result with usage tracking."""
+    extraction: DatadogExtraction | NewRelicExtraction
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    api_cost_usd: float = 0.0
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +173,16 @@ def _image_to_base64_url(path: Path) -> str:
     return f"data:{media_type};base64,{data}"
 
 
+def _calc_cost(usage) -> tuple[int, int, float]:
+    """Extract token counts and calculate USD cost from OpenAI usage object."""
+    if not usage:
+        return 0, 0, 0.0
+    prompt_tok = getattr(usage, "prompt_tokens", 0) or 0
+    completion_tok = getattr(usage, "completion_tokens", 0) or 0
+    cost = (prompt_tok * GPT4O_INPUT_PRICE + completion_tok * GPT4O_OUTPUT_PRICE) / 1_000_000
+    return prompt_tok, completion_tok, round(cost, 6)
+
+
 def _parse_json_response(raw_text: str) -> dict:
     """Parse JSON from LLM response, handling markdown code blocks."""
     json_str = raw_text
@@ -178,7 +204,7 @@ def _parse_json_response(raw_text: str) -> dict:
 async def extract_datadog(
     screenshot_paths: list[Path],
     hints: list[str] | None = None,
-) -> DatadogExtraction:
+) -> ExtractionResult:
     """Extract Datadog billing values from screenshots using GPT-4o Vision."""
     client = openai.OpenAI(api_key=settings.openai_api_key)
 
@@ -208,14 +234,22 @@ async def extract_datadog(
     raw_text = response.choices[0].message.content
     logger.info("Datadog extraction raw response: %s", raw_text[:500])
 
+    prompt_tok, completion_tok, cost = _calc_cost(response.usage)
+    logger.info("API usage: %d prompt + %d completion tokens = $%.4f", prompt_tok, completion_tok, cost)
+
     data = _parse_json_response(raw_text)
-    return DatadogExtraction(**data)
+    return ExtractionResult(
+        extraction=DatadogExtraction(**data),
+        prompt_tokens=prompt_tok,
+        completion_tokens=completion_tok,
+        api_cost_usd=cost,
+    )
 
 
 async def extract_newrelic(
     screenshot_paths: list[Path],
     hints: list[str] | None = None,
-) -> NewRelicExtraction:
+) -> ExtractionResult:
     """Extract New Relic Data Management values from screenshot using GPT-4o Vision."""
     client = openai.OpenAI(api_key=settings.openai_api_key)
 
@@ -244,5 +278,13 @@ async def extract_newrelic(
     raw_text = response.choices[0].message.content
     logger.info("New Relic extraction raw response: %s", raw_text[:500])
 
+    prompt_tok, completion_tok, cost = _calc_cost(response.usage)
+    logger.info("API usage: %d prompt + %d completion tokens = $%.4f", prompt_tok, completion_tok, cost)
+
     data = _parse_json_response(raw_text)
-    return NewRelicExtraction(**data)
+    return ExtractionResult(
+        extraction=NewRelicExtraction(**data),
+        prompt_tokens=prompt_tok,
+        completion_tokens=completion_tok,
+        api_cost_usd=cost,
+    )
