@@ -56,11 +56,14 @@ async def login_page(request: Request):
 @router.get("/auth/google")
 async def auth_google(request: Request):
     """Redirect to Google OAuth consent screen."""
-    # Build callback URL dynamically
-    redirect_uri = str(request.url_for("auth_callback"))
-    # In production behind a proxy, ensure HTTPS
-    if "fly.dev" in redirect_uri or "coralogix" in redirect_uri:
-        redirect_uri = redirect_uri.replace("http://", "https://")
+    # Build callback URL — use X-Forwarded-Host if behind a proxy (Firebase Hosting)
+    forwarded_host = request.headers.get("x-forwarded-host")
+    if forwarded_host:
+        redirect_uri = f"https://{forwarded_host}/auth/callback"
+    else:
+        redirect_uri = str(request.url_for("auth_callback"))
+        if "fly.dev" in redirect_uri or "coralogix" in redirect_uri or "run.app" in redirect_uri:
+            redirect_uri = redirect_uri.replace("http://", "https://")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
