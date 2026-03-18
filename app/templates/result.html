@@ -34,12 +34,23 @@
         <input type="hidden" name="provider" value="{{ provider }}">
 
         <div class="bg-white rounded-lg shadow p-6">
-            <p class="text-sm text-gray-500 mb-4">
+            <p class="text-sm text-gray-500 mb-2">
                 Review the extracted values below. Correct any errors before calculating.
-                <span class="inline-block w-3 h-3 bg-green-200 rounded-full ml-2"></span> High confidence
-                <span class="inline-block w-3 h-3 bg-yellow-200 rounded-full ml-1"></span> Medium
-                <span class="inline-block w-3 h-3 bg-red-200 rounded-full ml-1"></span> Missing
             </p>
+            <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mb-4 bg-gray-50 rounded-lg px-3 py-2">
+                <span class="flex items-center gap-1.5">
+                    <span class="inline-block w-3 h-3 bg-green-200 rounded-full"></span>
+                    <strong class="text-green-700">High</strong> — clearly found in screenshot
+                </span>
+                <span class="flex items-center gap-1.5">
+                    <span class="inline-block w-3 h-3 bg-yellow-200 rounded-full"></span>
+                    <strong class="text-yellow-700">Medium</strong> — found but may need verification
+                </span>
+                <span class="flex items-center gap-1.5">
+                    <span class="inline-block w-3 h-3 bg-red-200 rounded-full"></span>
+                    <strong class="text-red-700">Missing</strong> — not found in any screenshot
+                </span>
+            </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {% set confidence = extraction.get('confidence', {}) %}
