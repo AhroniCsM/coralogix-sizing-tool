@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Calibration data — baked-in from 16 DD + 11 NR real SE spreadsheets
-# These are injected into Claude Vision prompts for better accuracy.
+# These are injected into GPT-4o Vision prompts for better accuracy.
 # ---------------------------------------------------------------------------
 DD_CALIBRATION = {
     "customer_count": 16,

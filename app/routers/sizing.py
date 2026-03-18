@@ -34,7 +34,7 @@ async def upload(
     provider: str = Form(...),
     screenshots: list[UploadFile] = File(...),
 ):
-    """Save screenshots, run Claude Vision extraction, show review form."""
+    """Save screenshots, run GPT-4o Vision extraction, show review form."""
     # Validate provider
     if provider not in ("datadog", "newrelic"):
         return templates.TemplateResponse(
