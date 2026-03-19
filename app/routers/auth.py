@@ -4,7 +4,7 @@ import logging
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.config import BASE_DIR, settings
@@ -103,6 +103,13 @@ async def auth_callback(request: Request):
     logger.info("User logged in: %s", email)
 
     return RedirectResponse("/", status_code=303)
+
+
+@router.post("/accept-disclaimer")
+async def accept_disclaimer(request: Request):
+    """Record that the user accepted the alpha disclaimer for this session."""
+    request.session["disclaimer_accepted"] = True
+    return JSONResponse({"ok": True})
 
 
 @router.get("/logout")

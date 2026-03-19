@@ -24,7 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Paths that don't require authentication
-PUBLIC_PATHS = {"/login", "/auth/google", "/auth/callback", "/health", "/logout"}
+PUBLIC_PATHS = {"/login", "/auth/google", "/auth/callback", "/health", "/logout", "/accept-disclaimer"}
 PUBLIC_PREFIXES = ("/static/",)
 
 
