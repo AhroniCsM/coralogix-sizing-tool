@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="200" viewBox="0 0 600 200">
+  <rect width="600" height="200" fill="#f8f9fa" rx="8"/>
+  <rect x="10" y="10" width="580" height="35" fill="#232f3e" rx="4"/>
+  <text x="20" y="33" font-family="Arial" font-size="14" fill="white" font-weight="bold">AWS Billing → Charges by Service → AmazonCloudWatch</text>
+  <text x="20" y="68" font-family="monospace" font-size="11" fill="#333">├─ AmazonCloudWatch PutLogEvents</text>
+  <text x="400" y="68" font-family="monospace" font-size="11" fill="#333">173.546 GB</text>
+  <text x="530" y="68" font-family="monospace" font-size="11" fill="#333">$93.71</text>
+  <text x="20" y="88" font-family="monospace" font-size="11" fill="#333">├─ AmazonCloudWatch MetricMonitorUsage</text>
+  <text x="400" y="88" font-family="monospace" font-size="11" fill="#333">110.711 Metrics</text>
+  <text x="530" y="88" font-family="monospace" font-size="11" fill="#333">$33.21</text>
+  <text x="20" y="108" font-family="monospace" font-size="11" fill="#333">├─ AmazonCloudWatch TimedStorage-ByteHrs</text>
+  <text x="400" y="108" font-family="monospace" font-size="11" fill="#333">279.693 GB-Mo</text>
+  <text x="530" y="108" font-family="monospace" font-size="11" fill="#333">$7.83</text>
+  <text x="20" y="128" font-family="monospace" font-size="11" fill="#333">├─ AmazonCloudWatch StartQuery</text>
+  <text x="400" y="128" font-family="monospace" font-size="11" fill="#333">459.707 GB</text>
+  <text x="530" y="128" font-family="monospace" font-size="11" fill="#333">$2.48</text>
+  <text x="20" y="148" font-family="monospace" font-size="11" fill="#333">├─ GetMetricData API</text>
+  <text x="400" y="148" font-family="monospace" font-size="11" fill="#333">120M Metrics</text>
+  <text x="520" y="148" font-family="monospace" font-size="11" fill="#333">$1,202.50</text>
+  <text x="20" y="168" font-family="monospace" font-size="11" fill="#333">└─ Metric Updates</text>
+  <text x="400" y="168" font-family="monospace" font-size="11" fill="#333">1.2B Updates</text>
+  <text x="520" y="168" font-family="monospace" font-size="11" fill="#333">$3,622.30</text>
+  <text x="20" y="192" font-family="Arial" font-size="10" fill="#666" font-style="italic">Region: EU (Stockholm) — expand each region in your AWS bill</text>
+</svg>

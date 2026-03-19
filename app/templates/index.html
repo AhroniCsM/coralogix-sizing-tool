@@ -120,9 +120,9 @@
                 Not sure what to upload? Click to see an example:
             </p>
             <div class="flex gap-3">
-                <div class="w-1/2 cursor-pointer group" onclick="openLightbox('/static/img/examples/cw-billing.png', 'AWS CloudWatch — Charges by Service')">
+                <div class="w-1/2 cursor-pointer group" onclick="openLightbox('/static/img/examples/cw-billing.svg', 'AWS CloudWatch — Charges by Service')">
                     <div class="relative overflow-hidden rounded-lg border border-gray-200 group-hover:border-amber-500 transition">
-                        <img src="/static/img/examples/cw-billing.png" alt="CloudWatch Billing"
+                        <img src="/static/img/examples/cw-billing.svg" alt="CloudWatch Billing"
                              class="w-full h-20 object-cover object-top opacity-80 group-hover:opacity-100 transition"
                              onerror="this.parentElement.parentElement.parentElement.style.display='none'">
                         <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition flex items-center justify-center">
@@ -152,13 +152,15 @@
             </ul>
         </div>
         <div id="cw-tips" class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 hidden">
-            <p class="font-semibold mb-1">AWS CloudWatch Tips:</p>
-            <ul class="list-disc list-inside space-y-0.5">
-                <li>Upload AWS Billing screenshots (<strong>Charges by Service → CloudWatch</strong>)</li>
-                <li>Include <strong>all regions</strong> — one screenshot per region is fine</li>
-                <li>Make sure the line items (PutLogEvents, MetricMonitorUsage, etc.) are visible</li>
-                <li>X-Ray data may appear as a separate service line — include it too</li>
-            </ul>
+            <p class="font-semibold mb-2">How to get CloudWatch billing data:</p>
+            <ol class="list-decimal list-inside space-y-1">
+                <li>Search <strong>"Billing"</strong> in the AWS console → select <strong>"Bills"</strong> from the left menu</li>
+                <li>Check the <strong>"Billing period"</strong> — use the <strong>last full monthly bill</strong></li>
+                <li>Scroll to <strong>"Charges by Service"</strong> → expand <strong>"AmazonCloudWatch"</strong></li>
+                <li>Expand each <strong>region</strong> — screenshot the PutLogEvents, Metrics, Storage, etc.</li>
+                <li>Upload <strong>one screenshot per region</strong> — include all visible line items</li>
+            </ol>
+            <p class="mt-2 text-xs text-amber-600">Tip: The PutLogEvents GB number is your monthly raw log ingest. Divide by 30 for daily estimate.</p>
         </div>
 
         <button type="submit" id="submit-btn"

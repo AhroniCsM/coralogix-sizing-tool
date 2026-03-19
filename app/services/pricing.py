@@ -498,8 +498,8 @@ CW_PRICING = {
     "alarm_high_res_per_month": D("0.30"),       # $0.30/alarm (high-resolution)
 
     # X-Ray
-    "xray_traces_per_million": D("5.00"),        # $5.00/million traces recorded
-    "xray_segments_per_million": D("1.00"),      # $1.00/million segments recorded
+    "xray_traces_per_million": D("0.50"),        # $0.50/million traces retrieved/scanned
+    "xray_segments_per_million": D("0.50"),      # $0.50/million segments
 }
 
 # AWS doesn't negotiate like SaaS vendors, but there are Savings Plans / EDP
@@ -532,14 +532,23 @@ def estimate_cloudwatch(ext: CloudWatchExtraction) -> PricingEstimate:
     items = est.line_items
 
     # --- PutLogEvents (log ingestion) ---
+    # Use ACTUAL cost from the bill when available (more accurate than recalculating,
+    # since per-GB rate varies by region: $0.50 US, $0.54 EU, etc.)
     log_gb = ext.total_put_log_events_gb or 0
-    if log_gb > 0:
-        list_price = D(str(log_gb)) * CW_PRICING["put_log_events_per_gb"]
+    actual_cost = ext.total_put_log_events_cost or 0
+    if log_gb > 0 or actual_cost > 0:
+        if actual_cost > 0:
+            list_price = D(str(actual_cost))
+            effective_rate = D(str(actual_cost)) / D(str(log_gb)) if log_gb > 0 else CW_PRICING["put_log_events_per_gb"]
+            rate_str = f"${effective_rate.quantize(D('0.01'))}/GB (from bill)"
+        else:
+            list_price = D(str(log_gb)) * CW_PRICING["put_log_events_per_gb"]
+            rate_str = f"${CW_PRICING['put_log_events_per_gb']}/GB"
         items.append(PricingLineItem(
             category="Logs",
             description="PutLogEvents (log ingestion)",
             quantity=f"{log_gb:,.1f} GB/mo",
-            unit_price=f"${CW_PRICING['put_log_events_per_gb']}/GB",
+            unit_price=rate_str,
             monthly_list=list_price,
             monthly_low=list_price * (1 - CW_DISCOUNT_HIGH),
             monthly_high=list_price * (1 - CW_DISCOUNT_LOW),
@@ -682,11 +691,9 @@ def estimate_cloudwatch(ext: CloudWatchExtraction) -> PricingEstimate:
     est.total_high = sum(i.monthly_high for i in items)
 
     est.notes = [
-        "Prices from AWS CloudWatch public pricing (standard regions, on-demand).",
+        "Log ingestion cost uses actual bill amount when available (region-specific rates).",
         "Custom Metrics use tiered pricing: $0.30 (first 10K), $0.10 (10K-250K), $0.05 (250K+).",
         "Log Insights: first 5 GB/month scanned is free.",
-        "Low estimate assumes ~25% EDP/enterprise discount.",
-        "High estimate assumes ~5% minimal commitment discount.",
         "Actual costs may vary by region and AWS pricing agreement.",
     ]
 
