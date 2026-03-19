@@ -129,6 +129,43 @@ def init_db() -> None:
             db.execute("ALTER TABLE sizing_runs ADD COLUMN completion_tokens INTEGER DEFAULT 0")
             db.execute("ALTER TABLE sizing_runs ADD COLUMN api_cost_usd REAL DEFAULT 0")
 
+        # Migration: update CHECK constraint to include 'cloudwatch'
+        # SQLite can't ALTER CHECK constraints, so recreate the table
+        check_sql = db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='sizing_runs'"
+        ).fetchone()
+        if check_sql and "cloudwatch" not in (check_sql[0] or ""):
+            logger.info("Migrating sizing_runs table to add 'cloudwatch' provider")
+            # Disable FK checks during migration
+            db.execute("PRAGMA foreign_keys=OFF")
+            db.execute("ALTER TABLE sizing_runs RENAME TO sizing_runs_old")
+            db.execute("""
+                CREATE TABLE sizing_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    provider TEXT NOT NULL CHECK(provider IN ('datadog', 'newrelic', 'cloudwatch')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    raw_extraction TEXT NOT NULL,
+                    corrected_values TEXT,
+                    results TEXT,
+                    missing_fields TEXT,
+                    screenshot_paths TEXT NOT NULL,
+                    status TEXT DEFAULT 'extracted',
+                    user_email TEXT,
+                    prompt_tokens INTEGER DEFAULT 0,
+                    completion_tokens INTEGER DEFAULT 0,
+                    api_cost_usd REAL DEFAULT 0
+                )
+            """)
+            db.execute("""
+                INSERT INTO sizing_runs
+                SELECT id, provider, created_at, raw_extraction, corrected_values,
+                       results, missing_fields, screenshot_paths, status, user_email,
+                       prompt_tokens, completion_tokens, api_cost_usd
+                FROM sizing_runs_old
+            """)
+            db.execute("DROP TABLE sizing_runs_old")
+            db.execute("PRAGMA foreign_keys=ON")
+
         # Seed initial admin
         db.execute(
             "INSERT OR IGNORE INTO admin_users (email) VALUES (?)",
