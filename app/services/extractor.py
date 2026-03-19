@@ -49,7 +49,7 @@ CRITICAL RULES:
 - For "Indexed Logs" with retention labels like "(3 Day Retention)", extract the number in millions
 - "Ingested Spans" may be in GB or TB — THIS IS THE #1 ERROR, check the suffix very carefully!
 - On-Demand sub-labels show the same number — ignore them, just use the main value
-- If you see a "Metrics Overview" screenshot, extract "Total Metrics" from the top-right number
+- If you see a "Metrics Overview" or "Available Metrics" screenshot, look for the YELLOW bar chart. Extract the small number displayed at the TOP-LEFT corner of that yellow chart (e.g. "7.91M"). This is the peak daily active time series. Do NOT use the large "Total Metrics" headline number above it
 - IMPORTANT: Make sure you're reading from the BILLABLE tab (not "All")
 - "Analyzed Logs (Security)" is a SEPARATE line item from "Ingested Logs" — you MUST extract BOTH! They are added together for total log volume. This is the #2 most common extraction error.
 - Example: "Analyzed Logs (Security): 3,270 GB" → analyzed_logs_security_gb = 3270. Do NOT add this to ingested_logs_gb.
@@ -95,7 +95,7 @@ Return ONLY valid JSON matching this schema:
   "serverless_invocations": <number or null>,
   "rum_sessions": <number or null>,
   "error_tracking_events": <number or null>,
-  "total_metrics_from_overview": <number or null — from Metrics Overview screenshot>,
+  "metrics_chart_peak": <number or null — the small number at top-left of the YELLOW bar chart in Metrics Overview, NOT the large "Total Metrics" headline>,
   "missing_fields": [<list of field names not found in screenshots>],
   "confidence": {<field_name>: "high"|"medium"|"low" for EVERY field above — ALWAYS include ALL fields, not just uncertain ones}
 }
@@ -105,7 +105,7 @@ IMPORTANT UNIT CONVERSIONS to apply before returning:
 - If "Ingested Spans: 66.7 TB" → ingested_spans_gb = 66700 (convert TB to GB)
 - If "Container Hours: 2.72M" → container_hours = 2720000 (raw number, we convert later)
 - If "Custom Metrics: 2.69K" → custom_metrics = 2690
-- If "Total Metrics: 7.07M" → total_metrics_from_overview = 7070000
+- If yellow chart shows "7.91M" at top-left → metrics_chart_peak = 7910000 (NOT the "7.07M Total Metrics" headline)
 """
 
 NEWRELIC_PROMPT = """You are an expert Coralogix SE analyzing a New Relic Data Management screenshot.

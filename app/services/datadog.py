@@ -131,25 +131,24 @@ def calculate(ext: DatadogExtraction) -> SizingResult:
     infra_ts = (total_hosts + total_containers) * TS_PER_NODE + serverless_ts
     calculated_num_series = infra_ts + custom_metrics
 
-    # If Metrics Overview available, prefer it (per Notion guide: use the number
-    # from the top-left of the yellow bar chart in Metrics Overview screenshot)
-    if ext.total_metrics_from_overview is not None and ext.total_metrics_from_overview > 0:
-        metrics_num_series = int(D(str(ext.total_metrics_from_overview)))
-        details["metrics_source"] = "Metrics Overview screenshot"
+    # If Metrics Overview available, prefer the peak value from the yellow bar chart
+    if ext.metrics_chart_peak is not None and ext.metrics_chart_peak > 0:
+        metrics_num_series = int(D(str(ext.metrics_chart_peak)))
+        details["metrics_source"] = "Peak from Metrics Overview yellow chart"
         # Show calculated as reference for validation
         if calculated_num_series > 0:
             details["metrics_calculated_reference"] = str(int(calculated_num_series))
-            ratio = D(str(ext.total_metrics_from_overview)) / calculated_num_series
+            ratio = D(str(ext.metrics_chart_peak)) / calculated_num_series
             if ratio > 2 or ratio < D("0.5"):
                 warnings.append(
-                    f"DISCREPANCY: Metrics Overview shows {ext.total_metrics_from_overview:,.0f} "
+                    f"DISCREPANCY: Metrics chart peak shows {ext.metrics_chart_peak:,.0f} "
                     f"but infrastructure calculation gives {int(calculated_num_series):,}. "
-                    "Using Metrics Overview value."
+                    "Using chart peak value."
                 )
     else:
         metrics_num_series = int(calculated_num_series)
         details["metrics_source"] = "Calculated from infrastructure"
-        if ext.total_metrics_from_overview is None:
+        if ext.metrics_chart_peak is None:
             warnings.append(
                 "No Metrics Overview screenshot — NumSeries calculated from "
                 f"infrastructure ({int(total_hosts)} hosts + {int(total_containers)} "

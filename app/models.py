@@ -49,8 +49,8 @@ class DatadogExtraction(BaseModel):
     rum_sessions: float | None = None
     error_tracking_events: float | None = None
 
-    # From Metrics Overview screenshot
-    total_metrics_from_overview: float | None = None
+    # From Metrics Overview screenshot — peak value above the yellow bar chart
+    metrics_chart_peak: float | None = None
 
     # Metadata
     missing_fields: list[str] = []
