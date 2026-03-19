@@ -1,0 +1,594 @@
+{% extends "base.html" %}
+
+{% block title %}TCO Optimizer — Coralogix Sizing Tool{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">Coralogix TCO Optimizer</h1>
+            <p class="text-gray-500 text-sm">Interactive sizing and cost calculator with Coralogix's 3-tier architecture</p>
+        </div>
+        <a href="/" class="text-sm text-cx-blue hover:underline">&larr; New Upload</a>
+    </div>
+
+    <!-- ============ SUMMARY CARD ============ -->
+    <div class="bg-cx-dark text-white rounded-xl shadow-lg p-6 mb-8 print:bg-white print:text-gray-800 print:border">
+        <p class="text-xs uppercase tracking-widest text-gray-400 mb-3">Coralogix Sizing and Costs Summary</p>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div>
+                <p class="text-xs text-gray-400">Monthly Price</p>
+                <p class="text-2xl font-bold text-cx-green" id="summary-monthly">$0.00</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-400">Annual Price</p>
+                <p class="text-2xl font-bold text-cx-green" id="summary-annual">$0.00</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-400">Total GB</p>
+                <p class="text-xl font-semibold" id="summary-gb">0</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-400">Total Units</p>
+                <p class="text-xl font-semibold" id="summary-units">0</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-400">Price / Unit</p>
+                <p class="text-xl font-semibold" id="summary-price-unit">$0.00</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-400">Unified $/GB</p>
+                <p class="text-xl font-semibold" id="summary-price-gb">$0.00</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ LOGS SECTION ============ -->
+    <div class="bg-white rounded-lg shadow mb-6" id="section-logs">
+        <div class="border-b border-green-200 bg-green-50 rounded-t-lg px-6 py-4 cursor-pointer flex items-center justify-between" onclick="toggleSection('logs')">
+            <h2 class="text-lg font-bold text-green-800">Logs</h2>
+            <svg class="w-5 h-5 text-green-600 transition section-chevron" id="chevron-logs" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="p-6" id="body-logs">
+            <!-- Inputs -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Total Size (GB/Day)</label>
+                    <input type="number" id="logs-total-gb" step="0.01" min="0"
+                           class="w-full border-2 border-yellow-300 bg-yellow-50 rounded px-3 py-2 text-sm font-semibold focus:border-cx-green focus:ring-1 focus:ring-cx-green"
+                           value="{{ prefill.get('logs_gb_day', 0) }}" oninput="recalc()">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Index Data Retention (Days)</label>
+                    <input type="number" id="logs-retention" step="1" min="1"
+                           class="w-full border-2 border-yellow-300 bg-yellow-50 rounded px-3 py-2 text-sm focus:border-cx-green"
+                           value="7" oninput="recalc()">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Object Storage Retention</label>
+                    <input type="text" value="Unlimited" disabled
+                           class="w-full border rounded px-3 py-2 text-sm bg-gray-100 text-gray-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Unified Price per GB</label>
+                    <div class="w-full border rounded px-3 py-2 text-sm bg-gray-100 text-gray-700 font-mono font-semibold" id="logs-unified-price">-</div>
+                </div>
+            </div>
+
+            <!-- Tier table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-green-100 text-green-800 text-xs uppercase">
+                        <tr>
+                            <th class="px-3 py-2 text-left">Use Case</th>
+                            <th class="px-3 py-2 text-left">Features</th>
+                            <th class="px-3 py-2 text-center w-24">Distribution %</th>
+                            <th class="px-3 py-2 text-right">Size (GB)</th>
+                            <th class="px-3 py-2 text-center">Cost Opt.</th>
+                            <th class="px-3 py-2 text-right">Price/GB</th>
+                            <th class="px-3 py-2 text-right">Price/Month</th>
+                            <th class="px-3 py-2 text-right">Units</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr>
+                            <td class="px-3 py-3 font-medium text-gray-700">Compliance</td>
+                            <td class="px-3 py-3 text-xs text-gray-500">Object Storage queries, Live-tail, Error spike anomalies</td>
+                            <td class="px-3 py-3 text-center">
+                                <input type="number" id="logs-pct-compliance" step="1" min="0" max="100" value="10"
+                                       class="w-16 border-2 border-yellow-300 bg-yellow-50 rounded px-2 py-1 text-sm text-center" oninput="recalc()">%
+                            </td>
+                            <td class="px-3 py-3 text-right font-mono" id="logs-gb-compliance">0</td>
+                            <td class="px-3 py-3 text-center text-green-700 font-semibold">88%</td>
+                            <td class="px-3 py-3 text-right font-mono">$0.102</td>
+                            <td class="px-3 py-3 text-right font-mono font-semibold" id="logs-price-compliance">$0.00</td>
+                            <td class="px-3 py-3 text-right font-mono" id="logs-units-compliance">0</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-3 font-medium text-gray-700">Monitoring</td>
+                            <td class="px-3 py-3 text-xs text-gray-500">+ Alerting, ML-clustering, Flow anomalies, Dashboards</td>
+                            <td class="px-3 py-3 text-center">
+                                <input type="number" id="logs-pct-monitoring" step="1" min="0" max="100" value="70"
+                                       class="w-16 border-2 border-yellow-300 bg-yellow-50 rounded px-2 py-1 text-sm text-center" oninput="recalc()">%
+                            </td>
+                            <td class="px-3 py-3 text-right font-mono" id="logs-gb-monitoring">0</td>
+                            <td class="px-3 py-3 text-center text-green-700 font-semibold">68%</td>
+                            <td class="px-3 py-3 text-right font-mono">$0.272</td>
+                            <td class="px-3 py-3 text-right font-mono font-semibold" id="logs-price-monitoring">$0.00</td>
+                            <td class="px-3 py-3 text-right font-mono" id="logs-units-monitoring">0</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-3 font-medium text-gray-700">Frequent Search</td>
+                            <td class="px-3 py-3 text-xs text-gray-500">+ Lightning-fast Queries, Dashboards</td>
+                            <td class="px-3 py-3 text-center">
+                                <input type="number" id="logs-pct-frequent_search" step="1" min="0" max="100" value="20"
+                                       class="w-16 border-2 border-yellow-300 bg-yellow-50 rounded px-2 py-1 text-sm text-center" oninput="recalc()">%
+                            </td>
+                            <td class="px-3 py-3 text-right font-mono" id="logs-gb-frequent_search">0</td>
+                            <td class="px-3 py-3 text-center text-green-700 font-semibold">20%</td>
+                            <td class="px-3 py-3 text-right font-mono">$0.680</td>
+                            <td class="px-3 py-3 text-right font-mono font-semibold" id="logs-price-frequent_search">$0.00</td>
+                            <td class="px-3 py-3 text-right font-mono" id="logs-units-frequent_search">0</td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="bg-green-50 font-semibold">
+                        <tr>
+                            <td colspan="3" class="px-3 py-2 text-right text-gray-600">Totals</td>
+                            <td class="px-3 py-2 text-right font-mono" id="logs-gb-total">0</td>
+                            <td></td>
+                            <td></td>
+                            <td class="px-3 py-2 text-right font-mono text-green-700" id="logs-price-total">$0.00</td>
+                            <td class="px-3 py-2 text-right font-mono" id="logs-units-total">0</td>
+                        </tr>
+                        <tr>
+                            <td colspan="6" class="px-3 py-1 text-right text-xs text-gray-500">Annual</td>
+                            <td class="px-3 py-1 text-right font-mono text-xs text-green-600" id="logs-annual">$0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <p class="text-xs text-gray-400 mt-2" id="logs-dist-warn"></p>
+        </div>
+    </div>
+
+    <!-- ============ METRICS SECTION ============ -->
+    <div class="bg-white rounded-lg shadow mb-6" id="section-metrics">
+        <div class="border-b border-purple-200 bg-purple-50 rounded-t-lg px-6 py-4 cursor-pointer flex items-center justify-between" onclick="toggleSection('metrics')">
+            <h2 class="text-lg font-bold text-purple-800">Metrics</h2>
+            <svg class="w-5 h-5 text-purple-600 transition section-chevron" id="chevron-metrics" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="p-6" id="body-metrics">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Total Time Series</label>
+                    <input type="number" id="metrics-total-series" step="1" min="0"
+                           class="w-full border-2 border-yellow-300 bg-yellow-50 rounded px-3 py-2 text-sm font-semibold focus:border-cx-purple focus:ring-1 focus:ring-cx-purple"
+                           value="{{ prefill.get('metrics_num_series', 0) }}" oninput="recalc()">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Scrape Interval (sec)</label>
+                    <input type="number" id="metrics-scrape-interval" step="1" min="1"
+                           class="w-full border-2 border-yellow-300 bg-yellow-50 rounded px-3 py-2 text-sm focus:border-cx-purple"
+                           value="60" oninput="recalc()">
+                    <p class="text-xs text-gray-400 mt-1">Lower interval = more data (e.g. 30s = 2x volume)</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Object Storage Retention</label>
+                    <input type="text" value="Unlimited" disabled
+                           class="w-full border rounded px-3 py-2 text-sm bg-gray-100 text-gray-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Unified Price per GB</label>
+                    <div class="w-full border rounded px-3 py-2 text-sm bg-gray-100 text-gray-700 font-mono font-semibold" id="metrics-unified-price">-</div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-purple-100 text-purple-800 text-xs uppercase">
+                        <tr>
+                            <th class="px-3 py-2 text-left">Use Case</th>
+                            <th class="px-3 py-2 text-left">Features</th>
+                            <th class="px-3 py-2 text-right">Size (GB)</th>
+                            <th class="px-3 py-2 text-center">Cost Opt.</th>
+                            <th class="px-3 py-2 text-right">Price/GB</th>
+                            <th class="px-3 py-2 text-right">Price/Month</th>
+                            <th class="px-3 py-2 text-right">Units</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="px-3 py-3 font-medium text-gray-700">Metrics</td>
+                            <td class="px-3 py-3 text-xs text-gray-500">Object Storage, queries, alerting, dashboards</td>
+                            <td class="px-3 py-3 text-right font-mono" id="metrics-gb">0</td>
+                            <td class="px-3 py-3 text-center text-purple-700 font-semibold">97%</td>
+                            <td class="px-3 py-3 text-right font-mono">$0.028</td>
+                            <td class="px-3 py-3 text-right font-mono font-semibold" id="metrics-price">$0.00</td>
+                            <td class="px-3 py-3 text-right font-mono" id="metrics-units">0</td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="bg-purple-50 font-semibold">
+                        <tr>
+                            <td colspan="5" class="px-3 py-2 text-right text-gray-600">Monthly</td>
+                            <td class="px-3 py-2 text-right font-mono text-purple-700" id="metrics-price-total">$0.00</td>
+                            <td class="px-3 py-2 text-right font-mono" id="metrics-units-total">0</td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" class="px-3 py-1 text-right text-xs text-gray-500">Annual</td>
+                            <td class="px-3 py-1 text-right font-mono text-xs text-purple-600" id="metrics-annual">$0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ TRACING SECTION ============ -->
+    <div class="bg-white rounded-lg shadow mb-6" id="section-tracing">
+        <div class="border-b border-blue-200 bg-blue-50 rounded-t-lg px-6 py-4 cursor-pointer flex items-center justify-between" onclick="toggleSection('tracing')">
+            <h2 class="text-lg font-bold text-blue-800">Tracing</h2>
+            <svg class="w-5 h-5 text-blue-600 transition section-chevron" id="chevron-tracing" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="p-6" id="body-tracing">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Post-Sampled Size (GB/Day)</label>
+                    <input type="number" id="tracing-total-gb" step="0.01" min="0"
+                           class="w-full border-2 border-yellow-300 bg-yellow-50 rounded px-3 py-2 text-sm font-semibold focus:border-cx-blue focus:ring-1 focus:ring-cx-blue"
+                           value="{{ prefill.get('traces_gb_day', 0) }}" oninput="recalc()">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Object Storage Retention</label>
+                    <input type="text" value="Unlimited" disabled
+                           class="w-full border rounded px-3 py-2 text-sm bg-gray-100 text-gray-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Unified Price per GB</label>
+                    <div class="w-full border rounded px-3 py-2 text-sm bg-gray-100 text-gray-700 font-mono font-semibold" id="tracing-unified-price">-</div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-blue-100 text-blue-800 text-xs uppercase">
+                        <tr>
+                            <th class="px-3 py-2 text-left">Use Case</th>
+                            <th class="px-3 py-2 text-left">Features</th>
+                            <th class="px-3 py-2 text-center w-24">Distribution %</th>
+                            <th class="px-3 py-2 text-right">Size (GB)</th>
+                            <th class="px-3 py-2 text-center">Cost Opt.</th>
+                            <th class="px-3 py-2 text-right">Price/GB</th>
+                            <th class="px-3 py-2 text-right">Price/Month</th>
+                            <th class="px-3 py-2 text-right">Units</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr>
+                            <td class="px-3 py-3 font-medium text-gray-700">Compliance</td>
+                            <td class="px-3 py-3 text-xs text-gray-500">Direct Object Storage queries</td>
+                            <td class="px-3 py-3 text-center">
+                                <input type="number" id="tracing-pct-compliance" step="1" min="0" max="100" value="100"
+                                       class="w-16 border-2 border-yellow-300 bg-yellow-50 rounded px-2 py-1 text-sm text-center" oninput="recalc()">%
+                            </td>
+                            <td class="px-3 py-3 text-right font-mono" id="tracing-gb-compliance">0</td>
+                            <td class="px-3 py-3 text-center text-blue-700 font-semibold">90%</td>
+                            <td class="px-3 py-3 text-right font-mono">$0.085</td>
+                            <td class="px-3 py-3 text-right font-mono font-semibold" id="tracing-price-compliance">$0.00</td>
+                            <td class="px-3 py-3 text-right font-mono" id="tracing-units-compliance">0</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-3 font-medium text-gray-700">Monitoring</td>
+                            <td class="px-3 py-3 text-xs text-gray-500">+ Error Tracking, Alerting, Service Catalog, Service map</td>
+                            <td class="px-3 py-3 text-center">
+                                <input type="number" id="tracing-pct-monitoring" step="1" min="0" max="100" value="0"
+                                       class="w-16 border-2 border-yellow-300 bg-yellow-50 rounded px-2 py-1 text-sm text-center" oninput="recalc()">%
+                            </td>
+                            <td class="px-3 py-3 text-right font-mono" id="tracing-gb-monitoring">0</td>
+                            <td class="px-3 py-3 text-center text-blue-700 font-semibold">75%</td>
+                            <td class="px-3 py-3 text-right font-mono">$0.213</td>
+                            <td class="px-3 py-3 text-right font-mono font-semibold" id="tracing-price-monitoring">$0.00</td>
+                            <td class="px-3 py-3 text-right font-mono" id="tracing-units-monitoring">0</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-3 font-medium text-gray-700">Frequent Search</td>
+                            <td class="px-3 py-3 text-xs text-gray-500">+ Lightning-fast queries, Dashboards</td>
+                            <td class="px-3 py-3 text-center">
+                                <input type="number" id="tracing-pct-frequent_search" step="1" min="0" max="100" value="0"
+                                       class="w-16 border-2 border-yellow-300 bg-yellow-50 rounded px-2 py-1 text-sm text-center" oninput="recalc()">%
+                            </td>
+                            <td class="px-3 py-3 text-right font-mono" id="tracing-gb-frequent_search">0</td>
+                            <td class="px-3 py-3 text-center text-blue-700 font-semibold">50%</td>
+                            <td class="px-3 py-3 text-right font-mono">$0.425</td>
+                            <td class="px-3 py-3 text-right font-mono font-semibold" id="tracing-price-frequent_search">$0.00</td>
+                            <td class="px-3 py-3 text-right font-mono" id="tracing-units-frequent_search">0</td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="bg-blue-50 font-semibold">
+                        <tr>
+                            <td colspan="3" class="px-3 py-2 text-right text-gray-600">Totals</td>
+                            <td class="px-3 py-2 text-right font-mono" id="tracing-gb-total">0</td>
+                            <td></td>
+                            <td></td>
+                            <td class="px-3 py-2 text-right font-mono text-blue-700" id="tracing-price-total">$0.00</td>
+                            <td class="px-3 py-2 text-right font-mono" id="tracing-units-total">0</td>
+                        </tr>
+                        <tr>
+                            <td colspan="6" class="px-3 py-1 text-right text-xs text-gray-500">Annual</td>
+                            <td class="px-3 py-1 text-right font-mono text-xs text-blue-600" id="tracing-annual">$0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <p class="text-xs text-gray-400 mt-2" id="tracing-dist-warn"></p>
+        </div>
+    </div>
+
+    <!-- ============ RUM SECTION ============ -->
+    <div class="bg-white rounded-lg shadow mb-6" id="section-rum">
+        <div class="border-b border-orange-200 bg-orange-50 rounded-t-lg px-6 py-4 cursor-pointer flex items-center justify-between" onclick="toggleSection('rum')">
+            <h2 class="text-lg font-bold text-orange-800">RUM</h2>
+            <svg class="w-5 h-5 text-orange-600 transition section-chevron" id="chevron-rum" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="p-6" id="body-rum">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Total Size (GB/Day)</label>
+                    <input type="number" id="rum-total-gb" step="0.01" min="0"
+                           class="w-full border-2 border-yellow-300 bg-yellow-50 rounded px-3 py-2 text-sm font-semibold focus:border-cx-orange focus:ring-1 focus:ring-cx-orange"
+                           value="{{ prefill.get('rum_gb_day', 0) }}" oninput="recalc()">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Object Storage Retention</label>
+                    <input type="text" value="Unlimited" disabled
+                           class="w-full border rounded px-3 py-2 text-sm bg-gray-100 text-gray-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Unified Price per GB</label>
+                    <div class="w-full border rounded px-3 py-2 text-sm bg-gray-100 text-gray-700 font-mono font-semibold" id="rum-unified-price">-</div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-orange-100 text-orange-800 text-xs uppercase">
+                        <tr>
+                            <th class="px-3 py-2 text-left">Use Case</th>
+                            <th class="px-3 py-2 text-left">Features</th>
+                            <th class="px-3 py-2 text-center w-24">Distribution %</th>
+                            <th class="px-3 py-2 text-right">Size (GB)</th>
+                            <th class="px-3 py-2 text-center">Cost Opt.</th>
+                            <th class="px-3 py-2 text-right">Price/GB</th>
+                            <th class="px-3 py-2 text-right">Price/Month</th>
+                            <th class="px-3 py-2 text-right">Units</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr>
+                            <td class="px-3 py-3 font-medium text-gray-700">Compliance</td>
+                            <td class="px-3 py-3 text-xs text-gray-500">Object Storage queries, Live-tail, Error spike anomalies</td>
+                            <td class="px-3 py-3 text-center">
+                                <input type="number" id="rum-pct-compliance" step="1" min="0" max="100" value="0"
+                                       class="w-16 border-2 border-yellow-300 bg-yellow-50 rounded px-2 py-1 text-sm text-center" oninput="recalc()">%
+                            </td>
+                            <td class="px-3 py-3 text-right font-mono" id="rum-gb-compliance">0</td>
+                            <td class="px-3 py-3 text-center text-orange-700 font-semibold">88%</td>
+                            <td class="px-3 py-3 text-right font-mono">$0.102</td>
+                            <td class="px-3 py-3 text-right font-mono font-semibold" id="rum-price-compliance">$0.00</td>
+                            <td class="px-3 py-3 text-right font-mono" id="rum-units-compliance">0</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-3 font-medium text-gray-700">Monitoring</td>
+                            <td class="px-3 py-3 text-xs text-gray-500">+ Alerting, ML-clustering, Flow anomalies, Dashboards</td>
+                            <td class="px-3 py-3 text-center">
+                                <input type="number" id="rum-pct-monitoring" step="1" min="0" max="100" value="100"
+                                       class="w-16 border-2 border-yellow-300 bg-yellow-50 rounded px-2 py-1 text-sm text-center" oninput="recalc()">%
+                            </td>
+                            <td class="px-3 py-3 text-right font-mono" id="rum-gb-monitoring">0</td>
+                            <td class="px-3 py-3 text-center text-orange-700 font-semibold">68%</td>
+                            <td class="px-3 py-3 text-right font-mono">$0.272</td>
+                            <td class="px-3 py-3 text-right font-mono font-semibold" id="rum-price-monitoring">$0.00</td>
+                            <td class="px-3 py-3 text-right font-mono" id="rum-units-monitoring">0</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-3 font-medium text-gray-700">Frequent Search</td>
+                            <td class="px-3 py-3 text-xs text-gray-500">+ Lightning-fast Queries, Dashboards</td>
+                            <td class="px-3 py-3 text-center">
+                                <input type="number" id="rum-pct-frequent_search" step="1" min="0" max="100" value="0"
+                                       class="w-16 border-2 border-yellow-300 bg-yellow-50 rounded px-2 py-1 text-sm text-center" oninput="recalc()">%
+                            </td>
+                            <td class="px-3 py-3 text-right font-mono" id="rum-gb-frequent_search">0</td>
+                            <td class="px-3 py-3 text-center text-orange-700 font-semibold">20%</td>
+                            <td class="px-3 py-3 text-right font-mono">$0.680</td>
+                            <td class="px-3 py-3 text-right font-mono font-semibold" id="rum-price-frequent_search">$0.00</td>
+                            <td class="px-3 py-3 text-right font-mono" id="rum-units-frequent_search">0</td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="bg-orange-50 font-semibold">
+                        <tr>
+                            <td colspan="3" class="px-3 py-2 text-right text-gray-600">Totals</td>
+                            <td class="px-3 py-2 text-right font-mono" id="rum-gb-total">0</td>
+                            <td></td>
+                            <td></td>
+                            <td class="px-3 py-2 text-right font-mono text-orange-700" id="rum-price-total">$0.00</td>
+                            <td class="px-3 py-2 text-right font-mono" id="rum-units-total">0</td>
+                        </tr>
+                        <tr>
+                            <td colspan="6" class="px-3 py-1 text-right text-xs text-gray-500">Annual</td>
+                            <td class="px-3 py-1 text-right font-mono text-xs text-orange-600" id="rum-annual">$0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <p class="text-xs text-gray-400 mt-2" id="rum-dist-warn"></p>
+        </div>
+    </div>
+
+    <!-- Print / Share -->
+    <div class="flex gap-3 mb-8">
+        <button onclick="window.print()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition text-sm">
+            Print / Save as PDF
+        </button>
+        <a href="/" class="flex-1 text-center bg-cx-blue hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition text-sm">
+            New Sizing Upload
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Coralogix pricing model (from TCO Optimizer spreadsheet)
+const DAYS = 30.44; // avg days per month (365.25/12)
+
+const PRICING = {
+    logs: {
+        compliance:      { cost_opt: 0.88, price_per_gb: 0.102, gb_per_unit: 8.33 },
+        monitoring:      { cost_opt: 0.68, price_per_gb: 0.272, gb_per_unit: 3.13 },
+        frequent_search: { cost_opt: 0.20, price_per_gb: 0.680, gb_per_unit: 1.25 },
+    },
+    tracing: {
+        compliance:      { cost_opt: 0.90, price_per_gb: 0.085, gb_per_unit: 10.00 },
+        monitoring:      { cost_opt: 0.75, price_per_gb: 0.213, gb_per_unit: 4.00 },
+        frequent_search: { cost_opt: 0.50, price_per_gb: 0.425, gb_per_unit: 2.00 },
+    },
+    rum: {
+        compliance:      { cost_opt: 0.88, price_per_gb: 0.102, gb_per_unit: 8.33 },
+        monitoring:      { cost_opt: 0.68, price_per_gb: 0.272, gb_per_unit: 3.13 },
+        frequent_search: { cost_opt: 0.20, price_per_gb: 0.680, gb_per_unit: 1.25 },
+    },
+    metrics: {
+        metrics: { cost_opt: 0.97, price_per_gb: 0.028, gb_per_unit: 30.00 },
+    },
+};
+
+const $ = id => document.getElementById(id);
+const fmt = (n, d=2) => '$' + n.toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const fmtN = (n, d=2) => n.toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+/**
+ * Calculate a tiered signal (logs, tracing, rum).
+ * GB/day is distributed across tiers by user-chosen percentages.
+ * Price/Month = gb_per_day × price_per_gb × DAYS
+ * Units = ceil(gb_per_day / gb_per_unit)
+ */
+function calcTiered(signal, totalGBDay) {
+    const tiers = PRICING[signal];
+    const tierKeys = Object.keys(tiers);
+    let sumGB = 0, sumPrice = 0, sumUnits = 0;
+
+    for (const tier of tierKeys) {
+        const pctEl = $(`${signal}-pct-${tier}`);
+        const pct = pctEl ? (parseFloat(pctEl.value) || 0) / 100 : 0;
+        const gbDay = totalGBDay * pct;
+        const price = gbDay * tiers[tier].price_per_gb * DAYS;
+        const units = gbDay > 0 ? Math.ceil(gbDay / tiers[tier].gb_per_unit) : 0;
+
+        $(`${signal}-gb-${tier}`).textContent = fmtN(gbDay);
+        $(`${signal}-price-${tier}`).textContent = fmt(price);
+        $(`${signal}-units-${tier}`).textContent = units;
+
+        sumGB += gbDay;
+        sumPrice += price;
+        sumUnits += units;
+    }
+
+    $(`${signal}-gb-total`).textContent = fmtN(sumGB);
+    $(`${signal}-price-total`).textContent = fmt(sumPrice);
+    $(`${signal}-units-total`).textContent = sumUnits;
+    $(`${signal}-annual`).textContent = fmt(sumPrice * 12);
+
+    // Unified price per GB for this section
+    const unifiedEl = $(`${signal}-unified-price`);
+    if (unifiedEl) {
+        unifiedEl.textContent = sumGB > 0 ? fmt(sumPrice / (sumGB * DAYS), 4) : '-';
+    }
+
+    // Distribution warning
+    const pctSum = tierKeys.reduce((s, t) => {
+        const el = $(`${signal}-pct-${t}`);
+        return s + (el ? (parseFloat(el.value) || 0) : 0);
+    }, 0);
+    const warn = $(`${signal}-dist-warn`);
+    if (warn) {
+        if (Math.abs(pctSum - 100) > 0.01 && totalGBDay > 0) {
+            warn.textContent = `Distribution sums to ${pctSum}% (should be 100%)`;
+            warn.className = 'text-xs text-red-500 mt-2 font-medium';
+        } else {
+            warn.textContent = '';
+        }
+    }
+
+    return { gb: sumGB, price: sumPrice, units: sumUnits };
+}
+
+/**
+ * Metrics: GB = timeSeries × (60 / scrapeInterval) / 1000
+ * Scraping more frequently = more data points = more GB.
+ */
+function calcMetrics() {
+    const series = parseFloat($('metrics-total-series').value) || 0;
+    const scrapeInterval = parseFloat($('metrics-scrape-interval').value) || 60;
+    // At 60s scrape: 1 series ≈ 0.001 GB. Faster scrape = proportionally more data.
+    const scrapeMultiplier = 60 / Math.max(1, scrapeInterval);
+    const gb = series * scrapeMultiplier / 1000;
+
+    const tier = PRICING.metrics.metrics;
+    const price = gb * tier.price_per_gb * DAYS;
+    const units = gb > 0 ? Math.ceil(gb / tier.gb_per_unit) : 0;
+
+    $('metrics-gb').textContent = fmtN(gb);
+    $('metrics-price').textContent = fmt(price);
+    $('metrics-units').textContent = units;
+    $('metrics-price-total').textContent = fmt(price);
+    $('metrics-units-total').textContent = units;
+    $('metrics-annual').textContent = fmt(price * 12);
+
+    // Unified price per GB
+    const unifiedEl = $('metrics-unified-price');
+    if (unifiedEl) {
+        unifiedEl.textContent = gb > 0 ? fmt(price / (gb * DAYS), 4) : '-';
+    }
+
+    return { gb, price, units };
+}
+
+/**
+ * Main recalculation — called on any input change.
+ */
+function recalc() {
+    const logsGB = parseFloat($('logs-total-gb').value) || 0;
+    const tracingGB = parseFloat($('tracing-total-gb').value) || 0;
+    const rumGB = parseFloat($('rum-total-gb').value) || 0;
+
+    const logs = calcTiered('logs', logsGB);
+    const metrics = calcMetrics();
+    const tracing = calcTiered('tracing', tracingGB);
+    const rum = calcTiered('rum', rumGB);
+
+    const totalPrice = logs.price + metrics.price + tracing.price + rum.price;
+    const totalGB = logs.gb + metrics.gb + tracing.gb + rum.gb;
+    const totalUnits = logs.units + metrics.units + tracing.units + rum.units;
+
+    $('summary-monthly').textContent = fmt(totalPrice);
+    $('summary-annual').textContent = fmt(totalPrice * 12);
+    $('summary-gb').textContent = fmtN(totalGB, 0);
+    $('summary-units').textContent = totalUnits;
+    $('summary-price-unit').textContent = totalUnits > 0 ? fmt(totalPrice / totalUnits, 3) : '$0.00';
+    $('summary-price-gb').textContent = totalGB > 0 ? fmt(totalPrice / (totalGB * DAYS), 4) : '$0.00';
+}
+
+function toggleSection(name) {
+    const body = $(`body-${name}`);
+    const chevron = $(`chevron-${name}`);
+    body.classList.toggle('hidden');
+    chevron.classList.toggle('rotate-180');
+}
+
+// Initial calculation on page load
+document.addEventListener('DOMContentLoaded', recalc);
+</script>
+{% endblock %}

@@ -28,6 +28,30 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+@router.get("/tco", response_class=HTMLResponse)
+async def tco_calculator(request: Request, run_id: int = 0):
+    """Show TCO calculator, optionally pre-filled from a sizing run."""
+    prefill: dict = {}
+    if run_id:
+        try:
+            with get_db() as db:
+                row = db.execute(
+                    "SELECT provider, results FROM sizing_runs WHERE id = ?", (run_id,)
+                ).fetchone()
+                if row and row["results"]:
+                    results = json.loads(row["results"])
+                    prefill = {
+                        "logs_gb_day": float(results.get("logs_gb_day", 0)),
+                        "metrics_num_series": int(results.get("metrics_num_series", 0)),
+                        "traces_gb_day": float(results.get("traces_gb_day", 0)),
+                        "rum_gb_day": float(results.get("rum_gb_day", 0)),
+                        "provider": row["provider"],
+                    }
+        except Exception:
+            logger.exception("Failed to load run for TCO prefill")
+    return templates.TemplateResponse("tco.html", {"request": request, "prefill": prefill})
+
+
 @router.post("/upload")
 async def upload(
     request: Request,

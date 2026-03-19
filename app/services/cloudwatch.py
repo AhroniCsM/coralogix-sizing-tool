@@ -40,9 +40,17 @@ def calculate(ext: CloudWatchExtraction) -> SizingResult:
     put_log_gb = _val(ext.total_put_log_events_gb)
 
     if put_log_gb > 0:
-        logs_gb_day = (put_log_gb / 30) * CX_LOG_ENRICHMENT_MULTIPLIER
-        details["logs_put_log_events_gb_month"] = str(put_log_gb.quantize(D("0.01")))
-        details["logs_cx_enrichment_multiplier"] = str(CX_LOG_ENRICHMENT_MULTIPLIER)
+        raw_daily_gb = put_log_gb / 30
+        logs_gb_day = raw_daily_gb * CX_LOG_ENRICHMENT_MULTIPLIER
+
+        # Transparent enrichment breakdown (per Notion SE guide)
+        details["logs_raw_monthly_gb"] = str(put_log_gb.quantize(D("0.01")))
+        details["logs_raw_daily_gb"] = str(raw_daily_gb.quantize(D("0.01")))
+        details["logs_avg_cw_log_bytes"] = "455"
+        details["logs_cx_metadata_bytes"] = "350"
+        details["logs_cx_avg_log_bytes"] = "805"
+        details["logs_enrichment_multiplier"] = str(CX_LOG_ENRICHMENT_MULTIPLIER)
+        details["logs_cx_daily_gb"] = str(logs_gb_day.quantize(D("0.01")))
     else:
         logs_gb_day = D("0")
         warnings.append(
@@ -63,10 +71,6 @@ def calculate(ext: CloudWatchExtraction) -> SizingResult:
     start_query_gb = _val(ext.total_start_query_gb)
     if start_query_gb > 0:
         details["logs_insights_scanned_gb"] = str(start_query_gb.quantize(D("0.01")))
-
-    details["logs_gb_day_before_enrichment"] = str(
-        (put_log_gb / 30).quantize(D("0.01")) if put_log_gb > 0 else D("0")
-    )
 
     # ------------------------------------------------------------------
     # METRICS — custom metrics count → NumSeries

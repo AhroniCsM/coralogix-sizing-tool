@@ -19,22 +19,28 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 @router.post("/feedback/{run_id}")
 async def submit_feedback(
     run_id: int,
-    is_accurate: bool = Form(...),
+    is_accurate: str = Form(...),
     notes: str = Form(""),
     field_corrections: str = Form("{}"),
 ):
     """Submit accuracy feedback for a sizing run."""
+    accurate = is_accurate.lower() in ("true", "1", "yes")
+
     try:
         corrections = json.loads(field_corrections) if field_corrections else None
     except json.JSONDecodeError:
         corrections = None
 
-    insights.record_feedback(
-        run_id=run_id,
-        is_accurate=is_accurate,
-        notes=notes or None,
-        field_corrections=corrections,
-    )
+    try:
+        insights.record_feedback(
+            run_id=run_id,
+            is_accurate=accurate,
+            notes=notes or None,
+            field_corrections=corrections,
+        )
+    except Exception as e:
+        logger.exception("Failed to record feedback")
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
     return JSONResponse({"status": "ok", "message": "Feedback recorded. Thank you!"})
 
